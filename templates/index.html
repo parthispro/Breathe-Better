@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+        content="Breathe-Better – Check real-time air quality and get health recommendations for any city." />
+  <meta name="theme-color" content="#0f0f1a" />
+  <title>Breathe-Better – Urban Air Quality Assistant</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ── Skip link (keyboard / screen reader) ── -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ── Header ── -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon" aria-hidden="true">🌬️</span>
+        <span class="logo-text">Breathe-Better</span>
+      </div>
+      <p class="tagline">Urban Air Quality Assistant</p>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main id="main-content" class="main">
+
+    <!-- Search -->
+    <section class="search-section" aria-label="City search">
+      <div class="search-wrapper">
+        <label for="city-input" class="sr-only">Search for a city</label>
+        <div class="search-input-group" role="search">
+          <input
+            id="city-input"
+            type="search"
+            class="search-input"
+            placeholder="Search a city — e.g. Delhi, London, Tokyo…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="City name"
+            aria-autocomplete="list"
+            aria-controls="suggestions-list"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            maxlength="100"
+          />
+          <button
+            id="search-btn"
+            class="search-btn"
+            type="button"
+            aria-label="Search air quality"
+          >
+            <span aria-hidden="true" class="search-btn-icon">🔍</span>
+            <span class="search-btn-text">Search</span>
+          </button>
+        </div>
+        <ul
+          id="suggestions-list"
+          class="suggestions"
+          role="listbox"
+          aria-label="City suggestions"
+          hidden
+        ></ul>
+      </div>
+    </section>
+
+    <!-- Live region for screen-reader announcements -->
+    <div
+      id="live-region"
+      aria-live="polite"
+      aria-atomic="true"
+      class="sr-only"
+    ></div>
+
+    <!-- Error state -->
+    <div id="error-panel" class="error-panel" role="alert" hidden>
+      <span class="error-icon" aria-hidden="true">⚠️</span>
+      <p id="error-msg" class="error-msg"></p>
+      <button id="btn-retry" class="btn-retry" type="button">Try Again</button>
+    </div>
+
+    <!-- Skeleton loader (shown while fetching) -->
+    <div id="skeleton" class="skeleton-wrap" aria-hidden="true" aria-label="Loading…" hidden>
+      <div class="skeleton skeleton-aqi"></div>
+      <div class="skeleton-pollutants">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="results" hidden>
+
+      <!-- AQI Alert Banner (displayed only when AQI is Unhealthy: Poor, Very Poor, Severe) -->
+      <div id="aqi-alert-banner" class="aqi-alert-banner" role="alert" hidden>
+        <span class="alert-icon" aria-hidden="true">⚠️</span>
+        <div class="alert-content">
+          <strong id="alert-title">Health Alert: Unhealthy Air Quality</strong>
+          <p id="alert-desc">Current pollution levels pose health concerns. Take appropriate precautions.</p>
+        </div>
+      </div>
+
+      <!-- AQI Hero Card -->
+      <section class="aqi-card" id="aqi-card" aria-labelledby="aqi-heading">
+        <div class="aqi-card-inner">
+          <div class="aqi-left">
+            <h2 id="aqi-heading" class="city-name"></h2>
+            
+            <!-- Prominent Timestamp and Status Row -->
+            <div class="aqi-meta-row">
+              <div class="time-badge" aria-label="Measurement timestamp">
+                <span class="time-pulse-dot" aria-hidden="true"></span>
+                <span class="time-prefix">Updated:</span>
+                <time id="aqi-time" datetime=""></time>
+              </div>
+              <span id="cache-badge" class="cache-badge" hidden>📦 Cached</span>
+            </div>
+
+            <p class="dominant-pollutant">
+              Dominant pollutant: <strong id="dominant-pollutant"></strong>
+            </p>
+          </div>
+          <div class="aqi-right">
+            <div
+              id="aqi-gauge"
+              class="aqi-gauge"
+              role="img"
+              aria-label="AQI gauge"
+            >
+              <span id="aqi-number" class="aqi-number"></span>
+              <span id="aqi-label"  class="aqi-label"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pollutant Cards -->
+      <section class="pollutants-section" aria-labelledby="pollutants-heading">
+        <div class="section-header">
+          <h3 id="pollutants-heading" class="section-title">Pollutant Measurements</h3>
+          <span class="section-hint">CPCB Standard Breakpoints</span>
+        </div>
+        <div id="pollutants-grid" class="pollutants-grid" role="list"></div>
+      </section>
+
+      <!-- Health Recommendation -->
+      <section class="recommendation-section" aria-labelledby="rec-heading">
+        <h3 id="rec-heading" class="section-title">Health Recommendation</h3>
+        <div id="recommendation-card" class="recommendation-card">
+          <div class="rec-header">
+            <span id="rec-icon"     class="rec-icon"     aria-hidden="true"></span>
+            <h4  id="rec-headline"  class="rec-headline"></h4>
+          </div>
+          <p id="rec-detail" class="rec-detail"></p>
+          <ul id="rec-precautions" class="rec-precautions"></ul>
+        </div>
+      </section>
+
+      <!-- 24h PM2.5 Trend Chart -->
+      <section id="chart-section" class="chart-section" aria-labelledby="chart-heading">
+        <div class="section-header">
+          <h3 id="chart-heading" class="section-title">24-Hour PM2.5 Trend</h3>
+          <span class="chart-unit-badge">Unit: µg/m³</span>
+        </div>
+        <div class="chart-wrap" role="img" aria-label="24-hour PM2.5 trend chart with vertical scale">
+          <svg
+            id="trend-chart"
+            class="trend-svg"
+            viewBox="0 0 500 160"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Horizontal Reference Gridlines -->
+            <line id="grid-top" class="grid-line" x1="65" y1="20" x2="490" y2="20" />
+            <line id="grid-mid" class="grid-line" x1="65" y1="80" x2="490" y2="80" />
+            <line id="grid-bot" class="grid-line" x1="65" y1="140" x2="490" y2="140" />
+
+            <!-- Vertical Value Scale (Y-Axis Labels) -->
+            <text id="y-scale-top" class="scale-text" x="58" y="24" text-anchor="end">—</text>
+            <text id="y-scale-mid" class="scale-text" x="58" y="84" text-anchor="end">—</text>
+            <text id="y-scale-bot" class="scale-text" x="58" y="144" text-anchor="end">—</text>
+
+            <!-- Chart Shapes -->
+            <path  id="chart-area" fill="url(#chart-grad)" d=""/>
+            <polyline id="chart-line" class="chart-line" fill="none" points=""/>
+          </svg>
+
+          <!-- Horizontal Time Scale (X-Axis Labels) -->
+          <div class="chart-time-labels">
+            <span id="chart-label-start">—</span>
+            <span id="chart-label-mid">—</span>
+            <span id="chart-label-end">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data source & disclaimer -->
+      <section class="data-meta" aria-label="Data source information">
+        <p class="meta-text">
+          <span aria-hidden="true">📡</span>
+          Source:
+          <a
+            href="https://open-meteo.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Open-Meteo Air Quality API</a>
+        </p>
+        <p class="meta-text meta-disclaimer">
+          AQI calculated using <abbr title="Central Pollution Control Board">CPCB</abbr>
+          India methodology. Health recommendations are informational only and do not
+          constitute medical advice.
+        </p>
+      </section>
+
+    </div><!-- /results -->
+
+    <!-- Empty / initial state -->
+    <div id="empty-state" class="empty-state">
+      <span class="empty-icon" aria-hidden="true">🌍</span>
+      <p class="empty-title">Check air quality in your city</p>
+      <p class="empty-desc">Search for any city above to view real-time AQI, individual pollutants, and practical health guidance.</p>
+      <div id="recent-cities" class="recent-cities" hidden>
+        <p class="recent-label">Recent searches:</p>
+        <div id="recent-list" class="recent-list"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <strong>Breathe-Better</strong> &middot;
+      Powered by <a href="https://open-meteo.com" rel="noopener" target="_blank">Open-Meteo</a>
+      &middot; CPCB India AQI Standard
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

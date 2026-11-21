@@ -1,0 +1,88 @@
+# ── Python & Bytecode ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Virtual Environments ─────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Environment & Secrets ────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Testing & Code Coverage ──────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+*.coveragerc
+htmlcov/
+.tox/
+.nox/
+
+# ── Linters & Static Analysis ────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+
+# ── OS & Editor Artifacts ────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.directory
+*~
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# ── Flask & Runtime ──────────────────────────────────────────
+instance/
+.webassets-cache
+*.log
+flask_session/
+
+# ── Submission & Archives ────────────────────────────────────
+*.zip
+*.tar.gz
+*.tar.bz2
+*.7z
+*.rar
+
+# ── Project Planning, Context & Overview Docs ────────────────
+Project_Overview.md
+Implementation_Plan.md
+context.md
+*plan*.md
+*Plan*.md
+walkthrough*.md
