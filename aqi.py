@@ -15,9 +15,6 @@ Concentration units expected by this module:
 
 from __future__ import annotations
 
-# ---------------------------------------------------------------------------
-# Breakpoint tables — (C_low, C_high, I_low, I_high)
-# ---------------------------------------------------------------------------
 _BREAKPOINTS: dict[str, list[tuple[float, float, int, int]]] = {
     "pm2_5": [
         (0.0,   30.0,   0,   50),
@@ -69,7 +66,6 @@ _BREAKPOINTS: dict[str, list[tuple[float, float, int, int]]] = {
     ],
 }
 
-# (aqi_low, aqi_high, category_name, hex_color)
 _CATEGORIES: list[tuple[int, int, str, str]] = [
     (0,   50,  "Good",         "#00b050"),
     (51,  100, "Satisfactory", "#92d050"),
@@ -81,7 +77,6 @@ _CATEGORIES: list[tuple[int, int, str, str]] = [
 
 _RECOMMENDATIONS: dict[str, dict] = {
     "Good": {
-        "icon": "😊",
         "headline": "Air quality is good",
         "detail": "Normal outdoor activities are safe for everyone.",
         "precautions": [
@@ -89,7 +84,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
         ],
     },
     "Satisfactory": {
-        "icon": "🙂",
         "headline": "Air quality is satisfactory",
         "detail": "Generally safe for most people.",
         "precautions": [
@@ -98,7 +92,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
         ],
     },
     "Moderate": {
-        "icon": "😐",
         "headline": "Air quality is moderate",
         "detail": "Sensitive groups should take precautions.",
         "precautions": [
@@ -108,7 +101,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
         ],
     },
     "Poor": {
-        "icon": "😷",
         "headline": "Air quality is poor",
         "detail": "Reduce prolonged outdoor exposure.",
         "precautions": [
@@ -118,7 +110,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
         ],
     },
     "Very Poor": {
-        "icon": "⚠️",
         "headline": "Air quality is very poor",
         "detail": "Avoid prolonged outdoor activities.",
         "precautions": [
@@ -129,7 +120,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
         ],
     },
     "Severe": {
-        "icon": "🚨",
         "headline": "Air quality is severe",
         "detail": "Minimize outdoor exposure and follow official guidance.",
         "precautions": [
@@ -142,10 +132,6 @@ _RECOMMENDATIONS: dict[str, dict] = {
     },
 }
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def sub_index(pollutant: str, concentration: float | None) -> float | None:
     """
@@ -171,10 +157,8 @@ def sub_index(pollutant: str, concentration: float | None) -> float | None:
 
     for c_lo, c_hi, i_lo, i_hi in breakpoints:
         if c_lo <= concentration <= c_hi:
-            # Linear interpolation: Ip = (IHi - ILo)/(BPHi - BPLo) * (Cp - BPLo) + ILo
             return ((i_hi - i_lo) / (c_hi - c_lo)) * (concentration - c_lo) + i_lo
 
-    # Concentration exceeds the highest breakpoint — cap at 500
     if concentration > breakpoints[-1][1]:
         return 500.0
 
@@ -236,7 +220,6 @@ def _get_category(aqi: int) -> tuple[str, str]:
     for lo, hi, cat, color in _CATEGORIES:
         if lo <= aqi <= hi:
             return cat, color
-    # AQI > 500 is treated as Severe
     return "Severe", "#7030a0"
 
 
@@ -250,7 +233,6 @@ def get_recommendation(category: str) -> dict:
     return _RECOMMENDATIONS.get(
         category,
         {
-            "icon": "❓",
             "headline": "Air quality data unavailable",
             "detail": "Could not determine current air quality conditions.",
             "precautions": ["Check back later for updated data."],

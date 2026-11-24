@@ -1,15 +1,7 @@
-/* ============================================================
-   Breathe-Better — style.css
-   Mobile-first responsive design · Clean dark theme
-   Breakpoints: 320–767px | 768–1023px | 1024px+
-   ============================================================ */
-
-/* ---- CSS Custom Properties ---- */
 :root {
   --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
           Helvetica, Arial, sans-serif;
 
-  /* Core palette */
   --bg:          #0f111a;
   --bg-card:     #1a1d2e;
   --bg-card-alt: #22263d;
@@ -19,39 +11,34 @@
   --border:      #2e344d;
   --border-light:#3b4363;
 
-  /* Stable brand accent — calm sky blue, NOT driven by red AQI */
   --brand:       #38bdf8;
   --brand-hover: #0ea5e9;
   --brand-dim:   rgba(56, 189, 248, 0.15);
 
-  /* AQI category colors (CPCB standards) */
-  --aqi-good:         #16a34a;  /* Green */
-  --aqi-satisfactory: #65a30d;  /* Light Green */
-  --aqi-moderate:     #ca8a04;  /* Amber/Warm Yellow for good contrast */
-  --aqi-poor:         #ea580c;  /* Orange */
-  --aqi-very-poor:    #dc2626;  /* Red - reserved for dangerous levels */
-  --aqi-severe:       #7e22ce;  /* Purple */
+  --aqi-good:         #16a34a;
+  --aqi-satisfactory: #65a30d;
+  --aqi-moderate:     #ca8a04;
+  --aqi-poor:         #ea580c;
+  --aqi-very-poor:    #dc2626;
+  --aqi-severe:       #7e22ce;
 
-  /* Spacing scale */
   --sp-xs: 0.35rem;
   --sp-sm: 0.65rem;
   --sp-md: 1.15rem;
   --sp-lg: 1.65rem;
   --sp-xl: 2.25rem;
 
-  /* Radius */
   --r-sm:   0.5rem;
   --r-md:   0.875rem;
   --r-lg:   1.125rem;
   --r-full: 50%;
 
-  /* Transitions */
   --ease: 180ms ease;
 }
 
-/* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html                   { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+[hidden]               { display: none !important; }
 
 body {
   font-family: var(--font);
@@ -59,10 +46,9 @@ body {
   color:       var(--text);
   min-height:  100dvh;
   line-height: 1.65;
-  font-size:   1.0625rem; /* Enhanced readability */
+  font-size:   1.0625rem;
 }
 
-/* ---- Accessibility utilities ---- */
 .sr-only {
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
@@ -87,7 +73,6 @@ body {
 a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { color: var(--brand-hover); }
 
-/* ---- Header ---- */
 .site-header {
   background:    var(--bg-card);
   border-bottom: 1px solid var(--border);
@@ -108,7 +93,12 @@ a:hover { color: var(--brand-hover); }
   font-size: 1.55rem; font-weight: 800;
   letter-spacing: -0.02em;
 }
-.logo-icon { font-size: 1.75rem; line-height: 1; }
+.logo-mark {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--brand);
+  letter-spacing: -0.04em;
+}
 .logo-text { color: #ffffff; }
 
 .tagline {
@@ -117,14 +107,12 @@ a:hover { color: var(--brand-hover); }
   font-weight: 500;
 }
 
-/* ---- Main layout ---- */
 .main {
   max-width: 960px;
   margin:  0 auto;
   padding: var(--sp-lg) var(--sp-md);
 }
 
-/* ---- Search Section ---- */
 .search-section  { margin-bottom: var(--sp-lg); }
 .search-wrapper  { position: relative; }
 
@@ -166,14 +154,12 @@ a:hover { color: var(--brand-hover); }
   min-height:    48px;
   display:       flex;
   align-items:   center;
-  gap:           0.5rem;
   font-weight:   700;
   transition:    background var(--ease), transform var(--ease);
 }
 .search-btn:hover  { background: var(--brand-hover); }
 .search-btn:active { transform: scale(0.97); }
 
-/* Autocomplete dropdown */
 .suggestions {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0;
   background: var(--bg-card); border: 1.5px solid var(--border-light);
@@ -191,7 +177,9 @@ a:hover { color: var(--brand-hover); }
 .suggestion-item:hover,
 .suggestion-item:focus      { background: var(--bg-card-alt); outline: none; }
 
-/* ---- Alert Banner (Strictly reserved for unhealthy levels) ---- */
+.aqi-alert-banner[hidden] {
+  display: none !important;
+}
 .aqi-alert-banner {
   background: color-mix(in srgb, #dc2626 15%, var(--bg-card));
   border: 1.5px solid #ef4444;
@@ -202,11 +190,9 @@ a:hover { color: var(--brand-hover); }
   gap: 1rem;
   margin-bottom: var(--sp-md);
 }
-.alert-icon { font-size: 1.75rem; flex-shrink: 0; }
 .alert-content strong { color: #fca5a5; font-size: 1.05rem; display: block; margin-bottom: 0.15rem; }
 .alert-content p { color: #fecaca; font-size: 0.95rem; }
 
-/* ---- Error panel ---- */
 .error-panel {
   background:    color-mix(in srgb, #dc2626 12%, var(--bg-card));
   border:        1.5px solid #ef4444;
@@ -215,8 +201,7 @@ a:hover { color: var(--brand-hover); }
   text-align:    center;
   margin-bottom: var(--sp-lg);
 }
-.error-icon { font-size: 2.25rem; display: block; margin-bottom: var(--sp-sm); }
-.error-msg  { margin-bottom: var(--sp-md); font-size: 1.05rem; }
+.error-msg { margin-bottom: var(--sp-md); font-size: 1.05rem; }
 
 .btn-retry {
   background: var(--brand); color: #090d16;
@@ -227,7 +212,6 @@ a:hover { color: var(--brand-hover); }
 }
 .btn-retry:hover { background: var(--brand-hover); }
 
-/* ---- Skeleton loaders ---- */
 @keyframes shimmer {
   0%   { background-position: -800px 0; }
   100% { background-position:  800px 0; }
@@ -246,7 +230,6 @@ a:hover { color: var(--brand-hover); }
 }
 .skeleton-card { height: 130px; }
 
-/* ---- AQI Hero Card ---- */
 .aqi-card {
   background: var(--bg-card);
   border: 1.5px solid var(--border);
@@ -272,7 +255,6 @@ a:hover { color: var(--brand-hover); }
   word-break: break-word;
 }
 
-/* Prominent Timestamp & Status Row */
 .aqi-meta-row {
   display: flex;
   align-items: center;
@@ -325,7 +307,6 @@ a:hover { color: var(--brand-hover); }
   color: var(--text);
 }
 
-/* Prominent AQI Indicator (Reduced glow, crisp structure) */
 .aqi-gauge {
   width: 120px;
   height: 120px;
@@ -335,7 +316,6 @@ a:hover { color: var(--brand-hover); }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Reduced glow: calm soft shadow rather than wide radiation */
   border: 3.5px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px color-mix(in srgb, var(--aqi-color, #64748b) 30%, transparent);
   transition: background var(--ease), box-shadow 300ms ease;
@@ -358,7 +338,6 @@ a:hover { color: var(--brand-hover); }
   text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
-/* ---- Section Headers ---- */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -378,14 +357,12 @@ a:hover { color: var(--brand-hover); }
   font-weight: 500;
 }
 
-/* ---- Pollutant Cards (Spacious, Uncramped, Readable) ---- */
 .pollutants-section,
 .recommendation-section,
 .chart-section {
   margin-bottom: var(--sp-xl);
 }
 
-/* 2 columns on mobile, 3 columns on tablet/desktop: exactly 2 rows of 3 cards! */
 .pollutants-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -427,7 +404,6 @@ a:hover { color: var(--brand-hover); }
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
 }
-/* Category-specific sub-index badge colors: only bad values get warm/red colors! */
 .pollutant-si-badge.si-good         { background: rgba(22, 163, 74, 0.2);  color: #4ade80; }
 .pollutant-si-badge.si-satisfactory { background: rgba(101, 163, 13, 0.2); color: #a3e635; }
 .pollutant-si-badge.si-moderate     { background: rgba(202, 138, 4, 0.2);  color: #fde047; }
@@ -451,7 +427,7 @@ a:hover { color: var(--brand-hover); }
 .pollutant-value {
   font-size: 1.75rem;
   font-weight: 800;
-  color: #ffffff; /* Clean white instead of universal red! */
+  color: #ffffff;
   line-height: 1;
 }
 .pollutant-unit {
@@ -460,7 +436,6 @@ a:hover { color: var(--brand-hover); }
   color: var(--text-muted);
 }
 
-/* ---- Recommendation Card ---- */
 .recommendation-card {
   background: var(--bg-card);
   border: 1.5px solid var(--border);
@@ -470,7 +445,6 @@ a:hover { color: var(--brand-hover); }
 .rec-header {
   display: flex; align-items: center; gap: 0.85rem; margin-bottom: 0.65rem;
 }
-.rec-icon     { font-size: 2.25rem; line-height: 1; }
 .rec-headline { font-size: 1.35rem; font-weight: 800; color: #ffffff; }
 .rec-detail   { color: var(--text-muted); font-size: 1.05rem; margin-bottom: var(--sp-md); }
 
@@ -484,14 +458,13 @@ a:hover { color: var(--brand-hover); }
   color: var(--text);
 }
 .rec-precautions li::before {
-  content: '✓';
+  content: '–';
   position: absolute;
   left: 0;
-  color: var(--brand);
-  font-weight: 800;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
-/* ---- 24-Hour Trend Chart with Vertical Scale ---- */
 .chart-unit-badge {
   font-size: 0.85rem;
   background: var(--brand-dim);
@@ -514,7 +487,6 @@ a:hover { color: var(--brand-hover); }
   display: block;
 }
 
-/* Grid lines & scale text inside SVG */
 .grid-line {
   stroke: rgba(255, 255, 255, 0.12);
   stroke-dasharray: 4 4;
@@ -537,7 +509,7 @@ a:hover { color: var(--brand-hover); }
 .chart-time-labels {
   display: flex;
   justify-content: space-between;
-  padding-left: 65px; /* Offset matching the Y-axis label space */
+  padding-left: 65px;
   padding-right: 10px;
   font-size: 0.875rem;
   color: var(--text-muted);
@@ -545,18 +517,15 @@ a:hover { color: var(--brand-hover); }
   margin-top: 0.65rem;
 }
 
-/* ---- Data meta ---- */
 .data-meta { margin-top: var(--sp-md); }
 .meta-text {
   font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.35rem;
 }
 .meta-disclaimer { font-style: italic; color: var(--text-dim); }
 
-/* ---- Empty state ---- */
 .empty-state {
   text-align: center; padding: var(--sp-xl) var(--sp-md); color: var(--text-muted);
 }
-.empty-icon { font-size: 3.5rem; display: block; margin-bottom: var(--sp-md); }
 .empty-title { font-size: 1.35rem; font-weight: 700; color: #ffffff; margin-bottom: 0.35rem; }
 .empty-desc  { font-size: 1.05rem; max-width: 540px; margin: 0 auto; line-height: 1.6; }
 
@@ -573,7 +542,6 @@ a:hover { color: var(--brand-hover); }
 }
 .recent-city-btn:hover { border-color: var(--brand); background: var(--bg-card-alt); }
 
-/* ---- Footer ---- */
 .site-footer {
   text-align: center; padding: var(--sp-lg) var(--sp-md);
   font-size: 0.9rem; color: var(--text-muted);
@@ -581,11 +549,6 @@ a:hover { color: var(--brand-hover); }
 }
 .site-footer strong { color: #ffffff; }
 
-/* ============================================================
-   Tablet & Desktop Media Queries
-   ============================================================ */
-
-/* Tablet — 768px and up: 3 columns (2 rows of 3 cards) */
 @media (min-width: 768px) {
   .site-header { padding: 1.25rem var(--sp-xl); }
   .main        { padding: var(--sp-xl); }
@@ -600,7 +563,6 @@ a:hover { color: var(--brand-hover); }
   .trend-svg  { height: 180px; }
 }
 
-/* Desktop — 1024px and up: Keep 3 columns so cards stay wide and roomy! */
 @media (min-width: 1024px) {
   .pollutants-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -613,9 +575,6 @@ a:hover { color: var(--brand-hover); }
   .trend-svg      { height: 190px; }
 }
 
-/* ============================================================
-   Reduced motion
-   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration:   0.01ms !important;

@@ -210,7 +210,6 @@ class TestGetRecommendation(unittest.TestCase):
         for cat in self.KNOWN:
             with self.subTest(category=cat):
                 rec = get_recommendation(cat)
-                self.assertIn("icon",        rec)
                 self.assertIn("headline",    rec)
                 self.assertIn("detail",      rec)
                 self.assertIn("precautions", rec)
@@ -237,7 +236,8 @@ class TestGetRecommendation(unittest.TestCase):
 
     def test_empty_string_returns_fallback(self):
         rec = get_recommendation("")
-        self.assertIn("icon", rec)
+        self.assertIn("headline", rec)
+        self.assertIn("precautions", rec)
 
 
 if __name__ == "__main__":
