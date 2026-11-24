@@ -1,22 +1,15 @@
 'use strict';
 
-/* ============================================================
-   Breathe-Better — app.js
-   Vanilla JS · ES6+ · No external dependencies
-   ============================================================ */
-
-// ── Config ──────────────────────────────────────────────────
 const CFG = {
-  debounceMs:     300,
-  maxRecent:      5,
-  KEY_RECENT:     'bb_recent_cities',
-  KEY_LAST:       'bb_last_result',
-  OLD_RECENT:     'bs_recent_cities',
-  OLD_LAST:       'bs_last_result',
+  debounceMs: 300,
+  maxRecent:  5,
+  KEY_RECENT: 'bb_recent_cities',
+  KEY_LAST:   'bb_last_result',
+  OLD_RECENT: 'bs_recent_cities',
+  OLD_LAST:   'bs_last_result',
 };
 
-// ── DOM helpers ─────────────────────────────────────────────
-const $  = id  => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 const DOM = {
   input:          $('city-input'),
@@ -31,11 +24,9 @@ const DOM = {
   emptyState:     $('empty-state'),
   recentCities:   $('recent-cities'),
   recentList:     $('recent-list'),
-  // Alerts
   alertBanner:    $('aqi-alert-banner'),
   alertTitle:     $('alert-title'),
   alertDesc:      $('alert-desc'),
-  // AQI card
   cityName:       $('aqi-heading'),
   aqiTime:        $('aqi-time'),
   cacheBadge:     $('cache-badge'),
@@ -43,14 +34,10 @@ const DOM = {
   aqiNumber:      $('aqi-number'),
   aqiLabel:       $('aqi-label'),
   dominant:       $('dominant-pollutant'),
-  // Pollutants
   pollutantsGrid: $('pollutants-grid'),
-  // Recommendation
-  recIcon:        $('rec-icon'),
   recHeadline:    $('rec-headline'),
   recDetail:      $('rec-detail'),
   recPrecautions: $('rec-precautions'),
-  // Chart with Vertical Scale
   chartSection:   $('chart-section'),
   chartLine:      $('chart-line'),
   chartArea:      $('chart-area'),
@@ -62,30 +49,25 @@ const DOM = {
   labelEnd:       $('chart-label-end'),
 };
 
-// ── State ───────────────────────────────────────────────────
-let _abort        = null;   // AbortController for in-flight fetch
-let _lastLocation = null;   // { lat, lon, cityName } for Retry
+let _abort        = null;
+let _lastLocation = null;
 
-// ── Utilities ───────────────────────────────────────────────
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-/** Screen-reader live announcement (small delay so region resets). */
 function announce(msg) {
   DOM.liveRegion.textContent = '';
   setTimeout(() => { DOM.liveRegion.textContent = msg; }, 60);
 }
 
-/** Safe HTML escape — never use innerHTML with user input directly. */
 function esc(str) {
   const d = document.createElement('div');
   d.appendChild(document.createTextNode(String(str ?? '')));
   return d.innerHTML;
 }
 
-// ── Storage ─────────────────────────────────────────────────
 const Store = {
   getRecent() {
     try {
@@ -101,7 +83,7 @@ const Store = {
     list.unshift(loc);
     try {
       localStorage.setItem(CFG.KEY_RECENT, JSON.stringify(list.slice(0, CFG.maxRecent)));
-    } catch { /* storage full — ignore */ }
+    } catch { /* storage full */ }
   },
   getLast() {
     try {
@@ -118,12 +100,13 @@ const Store = {
   },
 };
 
-// ── UI state helpers ────────────────────────────────────────
 function showSkeleton() {
-  DOM.skeleton.hidden   = false;
-  DOM.results.hidden    = true;
-  DOM.errorPanel.hidden = true;
-  DOM.emptyState.hidden = true;
+  DOM.skeleton.hidden    = false;
+  DOM.results.hidden     = true;
+  DOM.errorPanel.hidden  = true;
+  DOM.emptyState.hidden  = true;
+  DOM.alertBanner.hidden = true;
+  DOM.alertBanner.style.display = 'none';
 }
 
 function showResults() {
@@ -134,25 +117,28 @@ function showResults() {
 }
 
 function showError(msg) {
-  DOM.skeleton.hidden   = true;
-  DOM.results.hidden    = true;
-  DOM.errorPanel.hidden = false;
-  DOM.emptyState.hidden = true;
+  DOM.skeleton.hidden    = true;
+  DOM.results.hidden     = true;
+  DOM.errorPanel.hidden  = false;
+  DOM.emptyState.hidden  = true;
+  DOM.alertBanner.hidden = true;
+  DOM.alertBanner.style.display = 'none';
   DOM.errorMsg.textContent = msg;
   announce('Error: ' + msg);
 }
 
 function showEmpty() {
-  DOM.skeleton.hidden   = true;
-  DOM.results.hidden    = true;
-  DOM.errorPanel.hidden = true;
-  DOM.emptyState.hidden = false;
+  DOM.skeleton.hidden    = true;
+  DOM.results.hidden     = true;
+  DOM.errorPanel.hidden  = true;
+  DOM.emptyState.hidden  = false;
+  DOM.alertBanner.hidden = true;
+  DOM.alertBanner.style.display = 'none';
   renderRecentCities();
 }
 
-// ── Autocomplete ─────────────────────────────────────────────
 function closeSuggestions() {
-  DOM.suggestions.hidden = true;
+  DOM.suggestions.hidden    = true;
   DOM.suggestions.innerHTML = '';
   DOM.input.setAttribute('aria-expanded', 'false');
 }
@@ -188,9 +174,9 @@ function renderSuggestions(list) {
     li.addEventListener('click', pick);
     li.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
-      if (e.key === 'Escape')     { closeSuggestions(); DOM.input.focus(); }
-      if (e.key === 'ArrowDown')  { const n = li.nextElementSibling;     if (n) n.focus(); }
-      if (e.key === 'ArrowUp')    { const p = li.previousElementSibling; if (p) p.focus(); else DOM.input.focus(); }
+      if (e.key === 'Escape')    { closeSuggestions(); DOM.input.focus(); }
+      if (e.key === 'ArrowDown') { const n = li.nextElementSibling;     if (n) n.focus(); }
+      if (e.key === 'ArrowUp')   { const p = li.previousElementSibling; if (p) p.focus(); else DOM.input.focus(); }
     });
     DOM.suggestions.appendChild(li);
   });
@@ -198,7 +184,6 @@ function renderSuggestions(list) {
   DOM.input.setAttribute('aria-expanded', 'true');
 }
 
-// ── Air Quality fetch ────────────────────────────────────────
 async function loadAirQuality(lat, lon, cityName) {
   if (_abort) _abort.abort();
   _abort = new AbortController();
@@ -234,7 +219,6 @@ async function loadAirQuality(lat, lon, cityName) {
   }
 }
 
-// ── Render helpers ───────────────────────────────────────────
 const POLLUTANT_META = {
   pm2_5: { label: 'PM2.5', unit: 'µg/m³', desc: 'Fine particulate matter'  },
   pm10:  { label: 'PM10',  unit: 'µg/m³', desc: 'Coarse particulate matter' },
@@ -265,9 +249,9 @@ function renderResults(data) {
 
 function renderAQIAlert(aqi) {
   const aqiVal = aqi?.aqi;
-  // Reserve red alert banner strictly for unhealthy values: Poor (201+), Very Poor (301+), Severe (401+)
   if (aqiVal != null && aqiVal > 200) {
     DOM.alertBanner.hidden = false;
+    DOM.alertBanner.style.display = 'flex';
     if (aqiVal > 400) {
       DOM.alertTitle.textContent = 'Emergency Alert: Severe Air Quality';
       DOM.alertDesc.textContent  = 'Extreme pollution levels. Avoid all outdoor activities and remain indoors with filtration.';
@@ -280,24 +264,21 @@ function renderAQIAlert(aqi) {
     }
   } else {
     DOM.alertBanner.hidden = true;
+    DOM.alertBanner.style.display = 'none';
   }
 }
 
 function renderAQICard(data) {
   const { city, aqi, timestamp, cached } = data;
 
-  DOM.cityName.textContent = city || 'Unknown';
+  DOM.cityName.textContent  = city || 'Unknown';
   DOM.cacheBadge.hidden = !cached;
 
-  // Prominent timestamp formatting
   if (timestamp) {
     try {
       const dt = new Date(timestamp);
       DOM.aqiTime.textContent = dt.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
       });
       DOM.aqiTime.setAttribute('datetime', dt.toISOString());
     } catch {
@@ -305,7 +286,6 @@ function renderAQICard(data) {
     }
   }
 
-  // Set AQI indicator (reduced glow, crisp prominent circular badge)
   if (aqi?.aqi != null) {
     DOM.aqiNumber.textContent = aqi.aqi;
     DOM.aqiLabel.textContent  = aqi.category;
@@ -359,18 +339,16 @@ function renderPollutants(current, subIndices) {
 
 function renderRecommendation(rec) {
   if (!rec) return;
-  DOM.recIcon.textContent     = rec.icon     || 'ℹ️';
-  DOM.recHeadline.textContent = rec.headline || 'Health Guidance';
-  DOM.recDetail.textContent   = rec.detail   || '';
+  DOM.recHeadline.textContent  = rec.headline || 'Health Guidance';
+  DOM.recDetail.textContent    = rec.detail   || '';
   DOM.recPrecautions.innerHTML = (rec.precautions || [])
     .map(p => `<li>${esc(p)}</li>`).join('');
 }
 
 function renderChart(hourly) {
-  const times  = hourly?.time   || [];
-  const values = hourly?.pm2_5  || [];
+  const times  = hourly?.time  || [];
+  const values = hourly?.pm2_5 || [];
 
-  // Pair times with values, drop null/undefined
   const pairs = times
     .map((t, i) => [t, values[i]])
     .filter(([, v]) => v != null);
@@ -381,21 +359,18 @@ function renderChart(hourly) {
   }
   DOM.chartSection.hidden = false;
 
-  const vals  = pairs.map(([, v]) => v);
-  let minV    = Math.floor(Math.min(...vals));
-  let maxV    = Math.ceil(Math.max(...vals));
+  const vals = pairs.map(([, v]) => v);
+  let minV   = Math.floor(Math.min(...vals));
+  let maxV   = Math.ceil(Math.max(...vals));
   if (minV < 0) minV = 0;
   if (maxV <= minV) maxV = minV + 10;
 
   const midV = Math.round((maxV + minV) / 2);
 
-  // Set vertical scale Y-axis labels with clear units
   DOM.yScaleTop.textContent = `${maxV}`;
   DOM.yScaleMid.textContent = `${midV}`;
   DOM.yScaleBot.textContent = `${minV}`;
 
-  // SVG dimensions: viewBox 0 0 500 160
-  // Chart plotting range: X: 68 to 490, Y: 20 (top) to 140 (bottom)
   const X_START = 68;
   const X_END   = 490;
   const Y_TOP   = 20;
@@ -410,14 +385,12 @@ function renderChart(hourly) {
 
   DOM.chartLine.setAttribute('points', ptStr);
 
-  // Area fill: bottom-left → curve points → bottom-right → close
   const areaPath =
     `M${X_START.toFixed(1)},${Y_BOT} ` +
     ptStr.split(' ').map(p => `L${p}`).join(' ') +
     ` L${X_END.toFixed(1)},${Y_BOT} Z`;
   DOM.chartArea.setAttribute('d', areaPath);
 
-  // Horizontal time labels
   DOM.labelStart.textContent = fmtTime(pairs[0][0]);
   DOM.labelMid.textContent   = fmtTime(pairs[Math.floor(pairs.length / 2)][0]);
   DOM.labelEnd.textContent   = fmtTime(pairs[pairs.length - 1][0]);
@@ -429,16 +402,15 @@ function fmtTime(iso) {
   } catch { return iso || ''; }
 }
 
-// ── Recent cities ────────────────────────────────────────────
 function renderRecentCities() {
   const recent = Store.getRecent();
   if (!recent.length) { DOM.recentCities.hidden = true; return; }
-  DOM.recentCities.hidden = false;
+  DOM.recentCities.hidden  = false;
   DOM.recentList.innerHTML = '';
 
   recent.forEach(loc => {
     const btn = document.createElement('button');
-    btn.className = 'recent-city-btn';
+    btn.className   = 'recent-city-btn';
     btn.textContent = loc.name;
     btn.setAttribute('aria-label', `Search again for ${loc.name}`);
     btn.addEventListener('click', () => {
@@ -449,7 +421,6 @@ function renderRecentCities() {
   });
 }
 
-// ── Search helpers ───────────────────────────────────────────
 async function fetchAndSelectFirst(query) {
   try {
     const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
@@ -471,7 +442,6 @@ async function fetchAndSelectFirst(query) {
   }
 }
 
-// ── Event listeners ──────────────────────────────────────────
 const debouncedSuggest = debounce(q => fetchSuggestions(q), CFG.debounceMs);
 
 DOM.input.addEventListener('input', () => {
@@ -507,21 +477,16 @@ DOM.btnRetry.addEventListener('click', () => {
   }
 });
 
-// Close suggestions when clicking outside
 document.addEventListener('click', e => {
   if (!DOM.suggestions.contains(e.target) && e.target !== DOM.input) {
     closeSuggestions();
   }
 });
 
-// ── Initialise ───────────────────────────────────────────────
 function init() {
   showEmpty();
-  // Restore last viewed city query if present
   const last = Store.getLast();
-  if (last?.city) {
-    DOM.input.value = last.city;
-  }
+  if (last?.city) DOM.input.value = last.city;
 }
 
 init();
