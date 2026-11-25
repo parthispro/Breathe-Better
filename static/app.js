@@ -1,56 +1,132 @@
 'use strict';
 
 const CFG = {
-  debounceMs: 300,
-  maxRecent:  5,
-  KEY_RECENT: 'bb_recent_cities',
-  KEY_LAST:   'bb_last_result',
-  OLD_RECENT: 'bs_recent_cities',
-  OLD_LAST:   'bs_last_result',
+  debounceMs:  300,
+  maxRecent:   5,
+  maxPinned:   4,
+  KEY_RECENT:  'bb_recent_cities',
+  KEY_LAST:    'bb_last_result',
+  KEY_PROFILE: 'bb_age_profile',
+  KEY_PINNED:  'bb_pinned_cities',
+  OLD_RECENT:  'bs_recent_cities',
+  OLD_LAST:    'bs_last_result',
+};
+
+const COMPARE_PRESETS = [
+  { name: 'Delhi, India',  lat: 28.652,  lon: 77.2315 },
+  { name: 'Jaipur, India', lat: 26.9124, lon: 75.7873 },
+  { name: 'Mumbai, India', lat: 19.076,  lon: 72.8777 },
+];
+
+const ICON_PLUS =
+  '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
+  '<path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
+const ICON_REMOVE =
+  '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
+  '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
+const SENSITIVE_PROFILES = new Set(['kids_0_4', 'kids_5_12', 'seniors', 'asthmatic']);
+
+const PROFILE_TO_GUIDANCE_KEY = {
+  overall:   'overall',
+  kids_0_4:  'infants_toddlers',
+  kids_5_12: 'kids_school',
+  teens:     'teens',
+  seniors:   'seniors',
+  asthmatic: 'asthmatic',
+};
+
+const PROFILE_LABELS = {
+  overall:   'Overall Population',
+  kids_0_4:  'Infants & Toddlers (0–4 yrs)',
+  kids_5_12: 'School-Age Kids (5–12 yrs)',
+  teens:     'Teens & Sports (13–17 yrs)',
+  seniors:   'Seniors (60+ yrs)',
+  asthmatic: 'Asthmatic & Respiratory',
 };
 
 const $ = id => document.getElementById(id);
 
 const DOM = {
-  input:          $('city-input'),
-  searchBtn:      $('search-btn'),
-  suggestions:    $('suggestions-list'),
-  liveRegion:     $('live-region'),
-  errorPanel:     $('error-panel'),
-  errorMsg:       $('error-msg'),
-  btnRetry:       $('btn-retry'),
-  skeleton:       $('skeleton'),
-  results:        $('results'),
-  emptyState:     $('empty-state'),
-  recentCities:   $('recent-cities'),
-  recentList:     $('recent-list'),
-  alertBanner:    $('aqi-alert-banner'),
-  alertTitle:     $('alert-title'),
-  alertDesc:      $('alert-desc'),
-  cityName:       $('aqi-heading'),
-  aqiTime:        $('aqi-time'),
-  cacheBadge:     $('cache-badge'),
-  aqiGauge:       $('aqi-gauge'),
-  aqiNumber:      $('aqi-number'),
-  aqiLabel:       $('aqi-label'),
-  dominant:       $('dominant-pollutant'),
-  pollutantsGrid: $('pollutants-grid'),
-  recHeadline:    $('rec-headline'),
-  recDetail:      $('rec-detail'),
-  recPrecautions: $('rec-precautions'),
-  chartSection:   $('chart-section'),
-  chartLine:      $('chart-line'),
-  chartArea:      $('chart-area'),
-  yScaleTop:      $('y-scale-top'),
-  yScaleMid:      $('y-scale-mid'),
-  yScaleBot:      $('y-scale-bot'),
-  labelStart:     $('chart-label-start'),
-  labelMid:       $('chart-label-mid'),
-  labelEnd:       $('chart-label-end'),
+  input:              $('city-input'),
+  searchBtn:          $('search-btn'),
+  suggestions:        $('suggestions-list'),
+  liveRegion:         $('live-region'),
+  errorPanel:         $('error-panel'),
+  errorMsg:           $('error-msg'),
+  btnRetry:           $('btn-retry'),
+  skeleton:           $('skeleton'),
+  results:            $('results'),
+  emptyState:         $('empty-state'),
+  btnOpenCompare:     $('btn-open-compare'),
+  recentCities:       $('recent-cities'),
+  recentList:         $('recent-list'),
+  tabOverview:        $('tab-overview'),
+  tabCompare:         $('tab-compare'),
+  overviewPanel:      $('overview-panel'),
+  comparePanel:       $('compare-panel'),
+  alertBanner:        $('aqi-alert-banner'),
+  alertTitle:         $('alert-title'),
+  alertDesc:          $('alert-desc'),
+  cityName:           $('aqi-heading'),
+  aqiTime:            $('aqi-time'),
+  cacheBadge:         $('cache-badge'),
+  btnPinCity:         $('btn-pin-city'),
+  aqiGauge:           $('aqi-gauge'),
+  aqiNumber:          $('aqi-number'),
+  aqiLabel:           $('aqi-label'),
+  dominant:           $('dominant-pollutant'),
+  pollutantsGrid:     $('pollutants-grid'),
+  ventSection:        $('ventilation-section'),
+  ventTier:           $('vent-tier'),
+  ventVc:             $('vent-vc'),
+  ventWind:           $('vent-wind'),
+  ventPbl:            $('vent-pbl'),
+  compSection:        $('comparator-section'),
+  compCpcbScore:      $('comp-cpcb-score'),
+  compCpcbCat:        $('comp-cpcb-cat'),
+  compCpcbScale:      $('comp-cpcb-scale'),
+  compCpcbDot:        $('comp-cpcb-dot'),
+  compUsScore:        $('comp-us-score'),
+  compUsCat:          $('comp-us-cat'),
+  compUsScale:        $('comp-us-scale'),
+  compUsDot:          $('comp-us-dot'),
+  compEuScore:        $('comp-eu-score'),
+  compEuCat:          $('comp-eu-cat'),
+  compEuScale:        $('comp-eu-scale'),
+  compEuDot:          $('comp-eu-dot'),
+  compNote:           $('comp-note'),
+  profileBar:         $('profile-bar'),
+  profilePills:       Array.from(document.querySelectorAll('.profile-pill')),
+  recHeadline:        $('rec-headline'),
+  recDetail:          $('rec-detail'),
+  recPrecautions:     $('rec-precautions'),
+  kidsTiers:          $('kids-tiers'),
+  chartSection:       $('chart-section'),
+  chartLine:          $('chart-line'),
+  chartArea:          $('chart-area'),
+  yScaleTop:          $('y-scale-top'),
+  yScaleMid:          $('y-scale-mid'),
+  yScaleBot:          $('y-scale-bot'),
+  labelStart:         $('chart-label-start'),
+  labelMid:           $('chart-label-mid'),
+  labelEnd:           $('chart-label-end'),
+  btnPresetCompare:   $('btn-preset-compare'),
+  btnClearPins:       $('btn-clear-pins'),
+  compareInput:       $('compare-city-input'),
+  compareAddBtn:      $('compare-add-btn'),
+  compareSuggestions: $('compare-suggestions'),
+  compareSubtitle:    $('compare-subtitle'),
+  sharedGridNotice:   $('shared-grid-warning'),
+  compareStatus:      $('compare-status'),
+  compareTbody:       $('compare-tbody'),
 };
 
 let _abort        = null;
 let _lastLocation = null;
+let _lastData     = null;
+let _compareDirty = true;
 
 function debounce(fn, ms) {
   let t;
@@ -66,6 +142,11 @@ function esc(str) {
   const d = document.createElement('div');
   d.appendChild(document.createTextNode(String(str ?? '')));
   return d.innerHTML;
+}
+
+function sameCoord(a, b) {
+  return Math.abs(Number(a.lat) - Number(b.lat)) < 0.01 &&
+         Math.abs(Number(a.lon) - Number(b.lon)) < 0.01;
 }
 
 const Store = {
@@ -98,7 +179,88 @@ const Store = {
       localStorage.setItem(CFG.KEY_LAST, JSON.stringify(data));
     } catch { /* ignore */ }
   },
+  getProfile() {
+    try {
+      const p = localStorage.getItem(CFG.KEY_PROFILE) || 'overall';
+      return PROFILE_TO_GUIDANCE_KEY[p] ? p : 'overall';
+    } catch {
+      return 'overall';
+    }
+  },
+  setProfile(profile) {
+    try {
+      localStorage.setItem(CFG.KEY_PROFILE, profile);
+    } catch { /* ignore */ }
+  },
+  hasCustomCompare() {
+    try {
+      return localStorage.getItem(CFG.KEY_PINNED) !== null;
+    } catch {
+      return false;
+    }
+  },
+  getPinned() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(CFG.KEY_PINNED) || '[]');
+      return Array.isArray(raw) ? raw.slice(0, CFG.maxPinned) : [];
+    } catch {
+      return [];
+    }
+  },
+  savePinned(list) {
+    try {
+      localStorage.setItem(CFG.KEY_PINNED, JSON.stringify(list.slice(0, CFG.maxPinned)));
+    } catch { /* ignore */ }
+  },
+  getActiveCompare(currentData) {
+    if (this.hasCustomCompare()) {
+      return this.getPinned();
+    }
+    const list = [];
+    if (currentData && currentData.lat != null && currentData.lon != null) {
+      list.push({ name: currentData.city || 'Current', lat: currentData.lat, lon: currentData.lon });
+    }
+    for (const preset of COMPARE_PRESETS) {
+      if (list.length >= 3) break;
+      if (!list.some(c => sameCoord(c, preset))) {
+        list.push(preset);
+      }
+    }
+    return list.slice(0, CFG.maxPinned);
+  },
+  addCompareCity(loc, currentData) {
+    const list = [...this.getActiveCompare(currentData)];
+    if (list.some(c => sameCoord(c, loc))) {
+      return { ok: true, already: true, list };
+    }
+    if (list.length >= CFG.maxPinned) {
+      return { ok: false, reason: 'max', list };
+    }
+    list.push(loc);
+    this.savePinned(list);
+    return { ok: true, already: false, list };
+  },
+  removeCompareCity(lat, lon, currentData) {
+    const list = this.getActiveCompare(currentData).filter(c => !sameCoord(c, { lat, lon }));
+    this.savePinned(list);
+    return list;
+  },
+  setPresetsCompare() {
+    this.savePinned(COMPARE_PRESETS);
+  },
+  clearPinned() {
+    this.savePinned([]);
+  },
 };
+
+function isInCompare(lat, lon) {
+  return Store.getActiveCompare(_lastData).some(c => sameCoord(c, { lat, lon }));
+}
+
+function updateCompareTabLabel() {
+  const count = Store.getActiveCompare(_lastData).length;
+  DOM.tabCompare.textContent = count > 0 ? `Compare Cities (${count})` : 'Compare Cities';
+}
 
 function showSkeleton() {
   DOM.skeleton.hidden    = false;
@@ -137,51 +299,135 @@ function showEmpty() {
   renderRecentCities();
 }
 
-function closeSuggestions() {
-  DOM.suggestions.hidden    = true;
-  DOM.suggestions.innerHTML = '';
-  DOM.input.setAttribute('aria-expanded', 'false');
+function closeSuggestions(listEl = DOM.suggestions, inputEl = DOM.input) {
+  listEl.hidden    = true;
+  listEl.innerHTML = '';
+  inputEl.setAttribute('aria-expanded', 'false');
 }
 
-async function fetchSuggestions(query) {
-  if (query.length < 2) { closeSuggestions(); return; }
+function applyCompareToggle(loc) {
+  const inList = isInCompare(loc.latitude, loc.longitude);
+  const cityObj = { name: loc.label, lat: loc.latitude, lon: loc.longitude };
+
+  if (inList) {
+    Store.removeCompareCity(loc.latitude, loc.longitude, _lastData);
+    _compareDirty = true;
+    announce(`Removed ${loc.label} from comparison.`);
+  } else {
+    const res = Store.addCompareCity(cityObj, _lastData);
+    if (!res.ok && res.reason === 'max') {
+      const msg = `Comparison limit is ${CFG.maxPinned} cities. Remove a city first to add ${loc.label}.`;
+      announce(msg);
+      if (!DOM.comparePanel.hidden) {
+        DOM.compareStatus.hidden      = false;
+        DOM.compareStatus.textContent = msg;
+      }
+      return false;
+    }
+    _compareDirty = true;
+    announce(`Added ${loc.label} to comparison.`);
+  }
+
+  updateCompareTabLabel();
+  if (_lastData) updatePinButton(_lastData);
+  if (!DOM.comparePanel.hidden) {
+    loadCompare();
+  }
+  return true;
+}
+
+async function fetchSuggestions(query, listEl, inputEl, mode) {
+  if (query.length < 2) { closeSuggestions(listEl, inputEl); return; }
   try {
     const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
-    if (!res.ok) { closeSuggestions(); return; }
+    if (!res.ok) { closeSuggestions(listEl, inputEl); return; }
     const list = await res.json();
-    if (!Array.isArray(list) || !list.length) { closeSuggestions(); return; }
-    renderSuggestions(list);
-  } catch { closeSuggestions(); }
+    if (!Array.isArray(list) || !list.length) { closeSuggestions(listEl, inputEl); return; }
+    renderSuggestions(list, listEl, inputEl, mode);
+  } catch { closeSuggestions(listEl, inputEl); }
 }
 
-function renderSuggestions(list) {
-  DOM.suggestions.innerHTML = '';
+function renderSuggestions(list, listEl, inputEl, mode) {
+  listEl.innerHTML = '';
   list.forEach((loc, i) => {
-    const li = document.createElement('li');
-    li.setAttribute('role', 'option');
-    li.id = `sug-${i}`;
-    li.className = 'suggestion-item';
-    li.setAttribute('tabindex', '0');
     const label = [loc.name, loc.admin1, loc.country].filter(Boolean).join(', ');
-    li.textContent = label;
+    const li = document.createElement('li');
+    li.setAttribute('role', 'none');
+    li.className = 'suggestion-item';
 
-    const pick = () => {
-      DOM.input.value = label;
-      closeSuggestions();
-      loadAirQuality(loc.latitude, loc.longitude, label);
+    const pickBtn = document.createElement('button');
+    pickBtn.type = 'button';
+    pickBtn.setAttribute('role', 'option');
+    pickBtn.id = `${mode}-sug-${i}`;
+    pickBtn.className = 'suggestion-pick-btn';
+    pickBtn.textContent = label;
+
+    const cmpBtn = document.createElement('button');
+    cmpBtn.type = 'button';
+    cmpBtn.className = 'suggestion-compare-btn';
+
+    const syncCmpBtn = () => {
+      const added = isInCompare(loc.latitude, loc.longitude);
+      cmpBtn.classList.toggle('in-compare', added);
+      cmpBtn.innerHTML = added ? ICON_REMOVE : ICON_PLUS;
+      const actionText = added ? `Remove ${label} from comparison` : `Add ${label} to comparison`;
+      cmpBtn.setAttribute('aria-label', actionText);
+      cmpBtn.setAttribute('title', actionText);
+    };
+    syncCmpBtn();
+
+    const pickPrimary = () => {
+      closeSuggestions(listEl, inputEl);
+      if (mode === 'compare') {
+        inputEl.value = '';
+        if (!isInCompare(loc.latitude, loc.longitude)) {
+          applyCompareToggle({ ...loc, label });
+        }
+      } else {
+        inputEl.value = label;
+        loadAirQuality(loc.latitude, loc.longitude, label);
+      }
     };
 
-    li.addEventListener('click', pick);
-    li.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
-      if (e.key === 'Escape')    { closeSuggestions(); DOM.input.focus(); }
-      if (e.key === 'ArrowDown') { const n = li.nextElementSibling;     if (n) n.focus(); }
-      if (e.key === 'ArrowUp')   { const p = li.previousElementSibling; if (p) p.focus(); else DOM.input.focus(); }
+    pickBtn.addEventListener('click', pickPrimary);
+    cmpBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      applyCompareToggle({ ...loc, label });
+      syncCmpBtn();
     });
-    DOM.suggestions.appendChild(li);
+
+    const handleKeyNav = (e, currentBtn) => {
+      if (e.key === 'Escape') {
+        closeSuggestions(listEl, inputEl);
+        inputEl.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextRow = li.nextElementSibling;
+        if (nextRow) nextRow.querySelector('.suggestion-pick-btn')?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevRow = li.previousElementSibling;
+        if (prevRow) prevRow.querySelector('.suggestion-pick-btn')?.focus();
+        else inputEl.focus();
+      } else if (e.key === 'ArrowRight' && currentBtn === pickBtn) {
+        e.preventDefault();
+        cmpBtn.focus();
+      } else if (e.key === 'ArrowLeft' && currentBtn === cmpBtn) {
+        e.preventDefault();
+        pickBtn.focus();
+      }
+    };
+
+    pickBtn.addEventListener('keydown', e => handleKeyNav(e, pickBtn));
+    cmpBtn.addEventListener('keydown',  e => handleKeyNav(e, cmpBtn));
+
+    li.appendChild(pickBtn);
+    li.appendChild(cmpBtn);
+    listEl.appendChild(li);
   });
-  DOM.suggestions.hidden = false;
-  DOM.input.setAttribute('aria-expanded', 'true');
+
+  listEl.hidden = false;
+  inputEl.setAttribute('aria-expanded', 'true');
 }
 
 async function loadAirQuality(lat, lon, cityName) {
@@ -224,7 +470,7 @@ const POLLUTANT_META = {
   pm10:  { label: 'PM10',  unit: 'µg/m³', desc: 'Coarse particulate matter' },
   no2:   { label: 'NO₂',   unit: 'µg/m³', desc: 'Nitrogen dioxide'          },
   o3:    { label: 'O₃',    unit: 'µg/m³', desc: 'Ground-level ozone'        },
-  co:    { label: 'CO',    unit: 'mg/m³',  desc: 'Carbon monoxide'           },
+  co:    { label: 'CO',    unit: 'mg/m³', desc: 'Carbon monoxide'           },
   so2:   { label: 'SO₂',   unit: 'µg/m³', desc: 'Sulphur dioxide'           },
 };
 
@@ -239,40 +485,69 @@ function getSubIndexCategoryClass(si) {
 }
 
 function renderResults(data) {
-  renderAQIAlert(data.aqi);
+  _lastData = data;
+  _compareDirty = true;
+  const profile = Store.getProfile();
+  syncProfileUI(profile);
+  updateCompareTabLabel();
+  renderAQIAlert(data.aqi, profile);
   renderAQICard(data);
   renderPollutants(data.current, data.aqi?.sub_indices || {});
-  renderRecommendation(data.recommendation);
+  renderVentilation(data.ventilation);
+  renderComparator(data.comparison);
+  renderRecommendation(data, profile);
+  renderKidsSection(data.age_guidance, profile);
   renderChart(data.hourly);
+  switchTab('overview', false);
   showResults();
 }
 
-function renderAQIAlert(aqi) {
+function renderAQIAlert(aqi, profile) {
   const aqiVal = aqi?.aqi;
   if (aqiVal != null && aqiVal > 200) {
     DOM.alertBanner.hidden = false;
     DOM.alertBanner.style.display = 'flex';
+    DOM.alertBanner.classList.remove('amber-advisory');
     if (aqiVal > 400) {
       DOM.alertTitle.textContent = 'Emergency Alert: Severe Air Quality';
       DOM.alertDesc.textContent  = 'Extreme pollution levels. Avoid all outdoor activities and remain indoors with filtration.';
     } else if (aqiVal > 300) {
       DOM.alertTitle.textContent = 'Health Warning: Very Poor Air Quality';
-      DOM.alertDesc.textContent  = 'Hazardous pollution conditions. Avoid prolonged outdoor exertion and wear N95 protection.';
+      DOM.alertDesc.textContent  = 'Hazardous pollution conditions. Avoid prolonged outdoor exertion indoors where possible.';
     } else {
-      DOM.alertTitle.textContent = 'Health Advisory: Poor Air Quality';
-      DOM.alertDesc.textContent  = 'Unhealthy air for sensitive individuals. Consider reducing prolonged outdoor activities.';
+      DOM.alertTitle.textContent = 'Health Alert: Poor Air Quality';
+      DOM.alertDesc.textContent  = 'Unhealthy air. Reduce outdoor exposure; sensitive groups should remain indoors.';
     }
+  } else if (aqiVal != null && aqiVal >= 101 && SENSITIVE_PROFILES.has(profile)) {
+    DOM.alertBanner.hidden = false;
+    DOM.alertBanner.style.display = 'flex';
+    DOM.alertBanner.classList.add('amber-advisory');
+    const label = PROFILE_LABELS[profile] || 'Sensitive group';
+    DOM.alertTitle.textContent = `Sensitive Group Advisory: Moderate AQI (${aqiVal})`;
+    DOM.alertDesc.textContent  = `${label}: Limit prolonged outdoor exertion and shift intense activity indoors.`;
   } else {
     DOM.alertBanner.hidden = true;
     DOM.alertBanner.style.display = 'none';
+    DOM.alertBanner.classList.remove('amber-advisory');
   }
+}
+
+function updatePinButton(data) {
+  if (!data || data.lat == null || data.lon == null) return;
+  const added = isInCompare(data.lat, data.lon);
+  DOM.btnPinCity.innerHTML = added
+    ? `${ICON_REMOVE}<span>Remove from Compare</span>`
+    : `${ICON_PLUS}<span>Add to Compare</span>`;
+  DOM.btnPinCity.classList.toggle('is-pinned', added);
+  DOM.btnPinCity.setAttribute('aria-pressed', added ? 'true' : 'false');
 }
 
 function renderAQICard(data) {
   const { city, aqi, timestamp, cached } = data;
 
-  DOM.cityName.textContent  = city || 'Unknown';
-  DOM.cacheBadge.hidden = !cached;
+  DOM.cityName.textContent = city || 'Unknown';
+  DOM.cacheBadge.hidden    = !cached;
+  updatePinButton(data);
 
   if (timestamp) {
     try {
@@ -337,12 +612,89 @@ function renderPollutants(current, subIndices) {
   });
 }
 
-function renderRecommendation(rec) {
+function renderVentilation(vent) {
+  if (!vent) {
+    DOM.ventSection.hidden = true;
+    return;
+  }
+  DOM.ventSection.hidden = false;
+  DOM.ventVc.textContent   = `${vent.ventilation_coeff} m²/s`;
+  DOM.ventWind.textContent = `${vent.wind_speed_ms} m/s (${vent.wind_direction_compass})`;
+  DOM.ventPbl.textContent  = `${vent.boundary_layer_height_m} m`;
+  DOM.ventTier.textContent = vent.dispersion_tier;
+
+  DOM.ventTier.className = 'vent-tier-pill';
+  if (vent.ventilation_coeff < 3000)      DOM.ventTier.classList.add('tier-high');
+  else if (vent.ventilation_coeff < 6000) DOM.ventTier.classList.add('tier-mod');
+  else                                    DOM.ventTier.classList.add('tier-good');
+}
+
+function renderComparator(comparison) {
+  if (!comparison) {
+    DOM.compSection.hidden = true;
+    return;
+  }
+  DOM.compSection.hidden = false;
+
+  const setSlot = (slot, scoreEl, catEl, scaleEl, dotEl) => {
+    scoreEl.textContent = slot?.score != null ? slot.score : '—';
+    catEl.textContent   = slot?.category || 'Data unavailable';
+    scaleEl.textContent = `Scale ${slot?.scale || '—'}`;
+    dotEl.style.background = slot?.color || '#64748b';
+  };
+
+  setSlot(comparison.cpcb,   DOM.compCpcbScore, DOM.compCpcbCat, DOM.compCpcbScale, DOM.compCpcbDot);
+  setSlot(comparison.us_epa, DOM.compUsScore,   DOM.compUsCat,   DOM.compUsScale,   DOM.compUsDot);
+  setSlot(comparison.eu_eea, DOM.compEuScore,   DOM.compEuCat,   DOM.compEuScale,   DOM.compEuDot);
+  DOM.compNote.textContent = comparison.note || '';
+}
+
+function syncProfileUI(profile) {
+  DOM.profilePills.forEach(btn => {
+    const active = btn.dataset.profile === profile;
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+    btn.setAttribute('tabindex', active ? '0' : '-1');
+  });
+}
+
+function renderRecommendation(data, profile) {
+  const rec = data?.recommendation;
   if (!rec) return;
-  DOM.recHeadline.textContent  = rec.headline || 'Health Guidance';
-  DOM.recDetail.textContent    = rec.detail   || '';
-  DOM.recPrecautions.innerHTML = (rec.precautions || [])
-    .map(p => `<li>${esc(p)}</li>`).join('');
+
+  const key      = PROFILE_TO_GUIDANCE_KEY[profile] || 'overall';
+  const guidance = data?.age_guidance?.[key];
+  const steps    = Array.isArray(guidance) && guidance.length ? guidance : (rec.precautions || []);
+
+  DOM.recHeadline.textContent = profile === 'overall'
+    ? (rec.headline || 'Health Guidance')
+    : `${rec.headline || 'Health Guidance'} (${PROFILE_LABELS[profile] || profile})`;
+  DOM.recDetail.textContent = rec.detail || '';
+  DOM.recPrecautions.innerHTML = steps.map(p => `<li>${esc(p)}</li>`).join('');
+}
+
+function renderKidsSection(ageGuidance, activeProfile) {
+  DOM.kidsTiers.innerHTML = '';
+  const tiers = [
+    { key: 'infants_toddlers', profile: 'kids_0_4',  title: 'Infants & Toddlers (0–4 yrs)' },
+    { key: 'kids_school',      profile: 'kids_5_12', title: 'School-Age Kids (5–12 yrs)'   },
+    { key: 'teens',            profile: 'teens',     title: 'Teens & Sports (13–17 yrs)'   },
+  ];
+
+  tiers.forEach(tier => {
+    const items = ageGuidance?.[tier.key] || [];
+    const row = document.createElement('div');
+    row.className = 'kids-tier-row' + (activeProfile === tier.profile ? ' active-tier' : '');
+
+    const listHtml = items.length
+      ? items.map(item => `<li>${esc(item)}</li>`).join('')
+      : '<li>No age-specific guidance available.</li>';
+
+    row.innerHTML =
+      `<h5 class="kids-tier-title">${esc(tier.title)}</h5>` +
+      `<ul class="kids-list">${listHtml}</ul>`;
+
+    DOM.kidsTiers.appendChild(row);
+  });
 }
 
 function renderChart(hourly) {
@@ -402,6 +754,120 @@ function fmtTime(iso) {
   } catch { return iso || ''; }
 }
 
+function appendCompareRow(rowData) {
+  const tr = document.createElement('tr');
+  const cpcbAqi = rowData.aqi?.aqi != null ? rowData.aqi.aqi : '—';
+  const cat     = rowData.aqi?.category || (rowData.pending ? 'Pending 2nd city' : 'Unknown');
+  const usAqi   = rowData.comparison?.us_epa?.score != null ? rowData.comparison.us_epa.score : '—';
+  const euAqi   = rowData.comparison?.eu_eea?.score != null ? rowData.comparison.eu_eea.score : '—';
+  const pm25    = rowData.current?.pm2_5 != null ? `${rowData.current.pm2_5.toFixed(1)} µg/m³` : '—';
+  const pm10    = rowData.current?.pm10  != null ? `${rowData.current.pm10.toFixed(1)} µg/m³`  : '—';
+  const name    = rowData.city || rowData.name || 'City';
+
+  tr.innerHTML =
+    `<td>${esc(name)}</td>` +
+    `<td><span class="compare-aqi-score">${esc(cpcbAqi)}</span></td>` +
+    `<td>${esc(cat)}</td>` +
+    `<td>${esc(usAqi)} / ${esc(euAqi)}</td>` +
+    `<td>${esc(pm25)}</td>` +
+    `<td>${esc(pm10)}</td>` +
+    `<td><button type="button" class="compare-remove-btn" data-lat="${esc(rowData.lat)}" data-lon="${esc(rowData.lon)}" aria-label="Remove ${esc(name)} from comparison" title="Remove ${esc(name)}">${ICON_REMOVE}</button></td>`;
+
+  tr.querySelector('.compare-remove-btn').addEventListener('click', () => {
+    Store.removeCompareCity(Number(rowData.lat), Number(rowData.lon), _lastData);
+    _compareDirty = true;
+    updateCompareTabLabel();
+    if (_lastData) updatePinButton(_lastData);
+    loadCompare();
+  });
+
+  DOM.compareTbody.appendChild(tr);
+}
+
+async function loadCompare() {
+  const targets = Store.getActiveCompare(_lastData);
+  updateCompareTabLabel();
+  DOM.sharedGridNotice.hidden = true;
+  DOM.compareTbody.innerHTML  = '';
+
+  if (targets.length === 0) {
+    DOM.compareStatus.hidden      = false;
+    DOM.compareStatus.textContent = 'No cities selected. Search above to add 2–4 cities or load Delhi · Jaipur · Mumbai.';
+    DOM.compareSubtitle.textContent = '0 of 4 cities selected.';
+    return;
+  }
+
+  if (targets.length === 1) {
+    DOM.compareStatus.hidden      = false;
+    DOM.compareStatus.textContent = '1 city selected. Search above to add at least 1 more city for live comparison.';
+    DOM.compareSubtitle.textContent = '1 of 4 cities selected.';
+    appendCompareRow({ ...targets[0], pending: true });
+    return;
+  }
+
+  const coordsParam = targets.map(c => `${c.lat},${c.lon}`).join(';');
+  const citiesParam = targets.map(c => c.name).join('|');
+
+  DOM.compareStatus.hidden      = false;
+  DOM.compareStatus.textContent = 'Loading multi-city comparison…';
+
+  try {
+    const url =
+      `/api/compare` +
+      `?coords=${encodeURIComponent(coordsParam)}` +
+      `&cities=${encodeURIComponent(citiesParam)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Compare request failed (${res.status})`);
+    }
+    const data = await res.json();
+    _compareDirty = false;
+    DOM.compareStatus.hidden = true;
+    renderCompareTable(data);
+  } catch (err) {
+    DOM.compareStatus.hidden      = false;
+    DOM.compareStatus.textContent = err.message || 'Could not load city comparison.';
+  }
+}
+
+function renderCompareTable(data) {
+  const rows = data?.cities || [];
+  DOM.sharedGridNotice.hidden = !data?.shared_grid_warning;
+  DOM.compareSubtitle.textContent = `Comparing ${rows.length} of ${CFG.maxPinned} cities. Search above to add or click any remove icon.`;
+
+  DOM.compareTbody.innerHTML = '';
+  rows.forEach(item => appendCompareRow(item));
+}
+
+function switchTab(tab, shouldFetchCompare = true) {
+  const isCompare = tab === 'compare';
+  if (!isCompare && !_lastData) {
+    showEmpty();
+    return;
+  }
+  DOM.tabOverview.setAttribute('aria-selected', isCompare ? 'false' : 'true');
+  DOM.tabCompare.setAttribute('aria-selected',  isCompare ? 'true'  : 'false');
+  DOM.overviewPanel.hidden = isCompare;
+  DOM.comparePanel.hidden  = !isCompare;
+
+  if (isCompare && shouldFetchCompare && _compareDirty) {
+    loadCompare();
+  }
+}
+
+function selectProfile(profile) {
+  if (!PROFILE_TO_GUIDANCE_KEY[profile]) return;
+  Store.setProfile(profile);
+  syncProfileUI(profile);
+  if (_lastData) {
+    renderAQIAlert(_lastData.aqi, profile);
+    renderRecommendation(_lastData, profile);
+    renderKidsSection(_lastData.age_guidance, profile);
+    announce(`Switched guidance profile to ${PROFILE_LABELS[profile] || profile}.`);
+  }
+}
+
 function renderRecentCities() {
   const recent = Store.getRecent();
   if (!recent.length) { DOM.recentCities.hidden = true; return; }
@@ -421,52 +887,100 @@ function renderRecentCities() {
   });
 }
 
-async function fetchAndSelectFirst(query) {
+async function fetchAndSelectFirst(query, mode = 'main') {
   try {
     const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
     if (!res.ok) {
-      showError('Could not reach the search service. Please try again.');
+      if (mode === 'compare') {
+        DOM.compareStatus.hidden      = false;
+        DOM.compareStatus.textContent = 'Could not reach the search service. Please try again.';
+      } else {
+        showError('Could not reach the search service. Please try again.');
+      }
       return;
     }
     const list = await res.json();
     if (!Array.isArray(list) || !list.length) {
-      showError(`No results found for "${query}". Try a different spelling or city name.`);
+      if (mode === 'compare') {
+        DOM.compareStatus.hidden      = false;
+        DOM.compareStatus.textContent = `No results found for "${query}".`;
+      } else {
+        showError(`No results found for "${query}". Try a different spelling or city name.`);
+      }
       return;
     }
     const loc   = list[0];
     const label = [loc.name, loc.admin1, loc.country].filter(Boolean).join(', ');
-    DOM.input.value = label;
-    loadAirQuality(loc.latitude, loc.longitude, label);
+    if (mode === 'compare') {
+      DOM.compareInput.value = '';
+      if (!isInCompare(loc.latitude, loc.longitude)) {
+        applyCompareToggle({ ...loc, label });
+      }
+    } else {
+      DOM.input.value = label;
+      loadAirQuality(loc.latitude, loc.longitude, label);
+    }
   } catch {
-    showError('Could not search for cities. Please check your connection.');
+    if (mode === 'compare') {
+      DOM.compareStatus.hidden      = false;
+      DOM.compareStatus.textContent = 'Could not search for cities. Please check your connection.';
+    } else {
+      showError('Could not search for cities. Please check your connection.');
+    }
   }
 }
 
-const debouncedSuggest = debounce(q => fetchSuggestions(q), CFG.debounceMs);
+const debouncedMainSuggest    = debounce(q => fetchSuggestions(q, DOM.suggestions,        DOM.input,        'main'),    CFG.debounceMs);
+const debouncedCompareSuggest = debounce(q => fetchSuggestions(q, DOM.compareSuggestions, DOM.compareInput, 'compare'), CFG.debounceMs);
 
 DOM.input.addEventListener('input', () => {
   const q = DOM.input.value.trim();
-  if (q.length >= 2) debouncedSuggest(q);
-  else closeSuggestions();
+  if (q.length >= 2) debouncedMainSuggest(q);
+  else closeSuggestions(DOM.suggestions, DOM.input);
 });
 
 DOM.input.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
-    closeSuggestions();
+    closeSuggestions(DOM.suggestions, DOM.input);
     const q = DOM.input.value.trim();
-    if (q) fetchAndSelectFirst(q);
+    if (q) fetchAndSelectFirst(q, 'main');
   }
   if (e.key === 'ArrowDown') {
-    const first = DOM.suggestions.querySelector('.suggestion-item');
+    const first = DOM.suggestions.querySelector('.suggestion-pick-btn');
     if (first) { e.preventDefault(); first.focus(); }
   }
-  if (e.key === 'Escape') closeSuggestions();
+  if (e.key === 'Escape') closeSuggestions(DOM.suggestions, DOM.input);
 });
 
 DOM.searchBtn.addEventListener('click', () => {
   const q = DOM.input.value.trim();
-  closeSuggestions();
-  if (q) fetchAndSelectFirst(q);
+  closeSuggestions(DOM.suggestions, DOM.input);
+  if (q) fetchAndSelectFirst(q, 'main');
+});
+
+DOM.compareInput.addEventListener('input', () => {
+  const q = DOM.compareInput.value.trim();
+  if (q.length >= 2) debouncedCompareSuggest(q);
+  else closeSuggestions(DOM.compareSuggestions, DOM.compareInput);
+});
+
+DOM.compareInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    closeSuggestions(DOM.compareSuggestions, DOM.compareInput);
+    const q = DOM.compareInput.value.trim();
+    if (q) fetchAndSelectFirst(q, 'compare');
+  }
+  if (e.key === 'ArrowDown') {
+    const first = DOM.compareSuggestions.querySelector('.suggestion-pick-btn');
+    if (first) { e.preventDefault(); first.focus(); }
+  }
+  if (e.key === 'Escape') closeSuggestions(DOM.compareSuggestions, DOM.compareInput);
+});
+
+DOM.compareAddBtn.addEventListener('click', () => {
+  const q = DOM.compareInput.value.trim();
+  closeSuggestions(DOM.compareSuggestions, DOM.compareInput);
+  if (q) fetchAndSelectFirst(q, 'compare');
 });
 
 DOM.btnRetry.addEventListener('click', () => {
@@ -477,14 +991,77 @@ DOM.btnRetry.addEventListener('click', () => {
   }
 });
 
+DOM.btnOpenCompare.addEventListener('click', () => {
+  showResults();
+  _compareDirty = true;
+  switchTab('compare');
+});
+
+DOM.tabOverview.addEventListener('click', () => switchTab('overview'));
+DOM.tabCompare.addEventListener('click',  () => switchTab('compare'));
+
+[DOM.tabOverview, DOM.tabCompare].forEach((tabEl, idx, tabs) => {
+  tabEl.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const next = tabs[(idx + 1) % tabs.length];
+      next.focus();
+      switchTab(next === DOM.tabCompare ? 'compare' : 'overview');
+    }
+  });
+});
+
+DOM.profilePills.forEach((pill, idx) => {
+  pill.addEventListener('click', () => selectProfile(pill.dataset.profile));
+  pill.addEventListener('keydown', e => {
+    let nextIdx = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextIdx = (idx + 1) % DOM.profilePills.length;
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   nextIdx = (idx - 1 + DOM.profilePills.length) % DOM.profilePills.length;
+    if (nextIdx !== null) {
+      e.preventDefault();
+      const nextPill = DOM.profilePills[nextIdx];
+      nextPill.focus();
+      selectProfile(nextPill.dataset.profile);
+    }
+  });
+});
+
+DOM.btnPinCity.addEventListener('click', () => {
+  if (!_lastData || _lastData.lat == null || _lastData.lon == null) return;
+  applyCompareToggle({
+    label:     _lastData.city || 'Unknown',
+    latitude:  _lastData.lat,
+    longitude: _lastData.lon,
+  });
+});
+
+DOM.btnPresetCompare.addEventListener('click', () => {
+  Store.setPresetsCompare();
+  _compareDirty = true;
+  if (_lastData) updatePinButton(_lastData);
+  loadCompare();
+});
+
+DOM.btnClearPins.addEventListener('click', () => {
+  Store.clearPinned();
+  _compareDirty = true;
+  if (_lastData) updatePinButton(_lastData);
+  loadCompare();
+});
+
 document.addEventListener('click', e => {
   if (!DOM.suggestions.contains(e.target) && e.target !== DOM.input) {
-    closeSuggestions();
+    closeSuggestions(DOM.suggestions, DOM.input);
+  }
+  if (!DOM.compareSuggestions.contains(e.target) && e.target !== DOM.compareInput) {
+    closeSuggestions(DOM.compareSuggestions, DOM.compareInput);
   }
 });
 
 function init() {
   showEmpty();
+  syncProfileUI(Store.getProfile());
+  updateCompareTabLabel();
   const last = Store.getLast();
   if (last?.city) DOM.input.value = last.city;
 }

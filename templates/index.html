@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description"
-        content="Breathe-Better – Check real-time air quality and get health recommendations for any city." />
+        content="Breathe-Better – Check real-time air quality, atmospheric dispersion, age-specific guidance, and multi-city comparisons." />
   <meta name="theme-color" content="#0f0f1a" />
   <title>Breathe-Better – Urban Air Quality Assistant</title>
   <link rel="stylesheet" href="/static/style.css" />
@@ -88,125 +88,325 @@
 
     <div id="results" class="results" hidden>
 
-      <div id="aqi-alert-banner" class="aqi-alert-banner" role="alert" hidden>
-        <div class="alert-content">
-          <strong id="alert-title">Health Alert: Unhealthy Air Quality</strong>
-          <p id="alert-desc">Current pollution levels pose health concerns. Take appropriate precautions.</p>
-        </div>
+      <div class="tab-bar" role="tablist" aria-label="Air quality dashboard views">
+        <button
+          id="tab-overview"
+          class="tab-btn"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="overview-panel"
+        >Overview</button>
+        <button
+          id="tab-compare"
+          class="tab-btn"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="compare-panel"
+        >Compare Cities</button>
       </div>
 
-      <section class="aqi-card" id="aqi-card" aria-labelledby="aqi-heading">
-        <div class="aqi-card-inner">
-          <div class="aqi-left">
-            <h2 id="aqi-heading" class="city-name"></h2>
+      <div id="overview-panel" role="tabpanel" aria-labelledby="tab-overview">
 
-            <div class="aqi-meta-row">
-              <div class="time-badge" aria-label="Measurement timestamp">
-                <span class="time-pulse-dot" aria-hidden="true"></span>
-                <span class="time-prefix">Updated:</span>
-                <time id="aqi-time" datetime=""></time>
+        <div id="aqi-alert-banner" class="aqi-alert-banner" role="alert" hidden>
+          <div class="alert-content">
+            <strong id="alert-title">Health Alert: Unhealthy Air Quality</strong>
+            <p id="alert-desc">Current pollution levels pose health concerns. Take appropriate precautions.</p>
+          </div>
+        </div>
+
+        <section class="aqi-card" id="aqi-card" aria-labelledby="aqi-heading">
+          <div class="aqi-card-inner">
+            <div class="aqi-left">
+              <h2 id="aqi-heading" class="city-name"></h2>
+
+              <div class="aqi-meta-row">
+                <div class="time-badge" aria-label="Measurement timestamp">
+                  <span class="time-pulse-dot" aria-hidden="true"></span>
+                  <span class="time-prefix">Updated:</span>
+                  <time id="aqi-time" datetime=""></time>
+                </div>
+                <span id="cache-badge" class="cache-badge" hidden>cached</span>
+                <button id="btn-pin-city" class="pin-city-btn" type="button">Pin to Compare</button>
               </div>
-              <span id="cache-badge" class="cache-badge" hidden>cached</span>
-            </div>
 
-            <p class="dominant-pollutant">
-              Dominant pollutant: <strong id="dominant-pollutant"></strong>
+              <p class="dominant-pollutant">
+                Dominant pollutant: <strong id="dominant-pollutant"></strong>
+              </p>
+            </div>
+            <div class="aqi-right">
+              <div
+                id="aqi-gauge"
+                class="aqi-gauge"
+                role="img"
+                aria-label="AQI gauge"
+              >
+                <span id="aqi-number" class="aqi-number"></span>
+                <span id="aqi-label"  class="aqi-label"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pollutants-section" aria-labelledby="pollutants-heading">
+          <div class="section-header">
+            <h3 id="pollutants-heading" class="section-title">Pollutant Measurements</h3>
+            <span class="section-hint">CPCB Standard Breakpoints</span>
+          </div>
+          <div id="pollutants-grid" class="pollutants-grid" role="list"></div>
+        </section>
+
+        <section id="ventilation-section" class="ventilation-section" aria-labelledby="vent-heading" hidden>
+          <div class="section-header">
+            <h3 id="vent-heading" class="section-title">Atmospheric Dispersion</h3>
+            <span id="vent-tier" class="vent-tier-pill"></span>
+          </div>
+          <div id="ventilation-card" class="ventilation-card">
+            <div class="vent-grid">
+              <div class="vent-metric">
+                <span class="vent-metric-label">Ventilation Coeff.</span>
+                <strong id="vent-vc" class="vent-metric-val">—</strong>
+              </div>
+              <div class="vent-metric">
+                <span class="vent-metric-label">Surface Wind</span>
+                <strong id="vent-wind" class="vent-metric-val">—</strong>
+              </div>
+              <div class="vent-metric">
+                <span class="vent-metric-label">Mixing Height (PBL)</span>
+                <strong id="vent-pbl" class="vent-metric-val">—</strong>
+              </div>
+            </div>
+            <p class="vent-explainer">
+              Wind Speed × Boundary Layer Height measures whether pollutants disperse cleanly (&gt;= 6000 m²/s) or accumulate near ground level (&lt; 3000 m²/s).
             </p>
           </div>
-          <div class="aqi-right">
-            <div
-              id="aqi-gauge"
-              class="aqi-gauge"
-              role="img"
-              aria-label="AQI gauge"
+        </section>
+
+        <section id="comparator-section" class="comparator-section" aria-labelledby="comp-heading" hidden>
+          <div class="section-header">
+            <h3 id="comp-heading" class="section-title">AQI Standard Comparison</h3>
+            <span class="section-hint">Why different apps show different numbers</span>
+          </div>
+          <div id="comparator-card" class="comparator-card">
+            <div class="comparator-grid">
+              <div class="comp-item" id="comp-card-cpcb">
+                <div class="comp-header">
+                  <span class="comp-standard">CPCB India</span>
+                  <span id="comp-cpcb-scale" class="comp-scale">Scale 0–500</span>
+                </div>
+                <div class="comp-score-row">
+                  <span id="comp-cpcb-dot" class="comp-dot" aria-hidden="true"></span>
+                  <strong id="comp-cpcb-score" class="comp-score">—</strong>
+                </div>
+                <span id="comp-cpcb-cat" class="comp-cat">—</span>
+              </div>
+              <div class="comp-item" id="comp-card-us">
+                <div class="comp-header">
+                  <span class="comp-standard">US EPA</span>
+                  <span id="comp-us-scale" class="comp-scale">Scale 0–500+</span>
+                </div>
+                <div class="comp-score-row">
+                  <span id="comp-us-dot" class="comp-dot" aria-hidden="true"></span>
+                  <strong id="comp-us-score" class="comp-score">—</strong>
+                </div>
+                <span id="comp-us-cat" class="comp-cat">—</span>
+              </div>
+              <div class="comp-item" id="comp-card-eu">
+                <div class="comp-header">
+                  <span class="comp-standard">EU EEA</span>
+                  <span id="comp-eu-scale" class="comp-scale">Scale 0–100+</span>
+                </div>
+                <div class="comp-score-row">
+                  <span id="comp-eu-dot" class="comp-dot" aria-hidden="true"></span>
+                  <strong id="comp-eu-score" class="comp-score">—</strong>
+                </div>
+                <span id="comp-eu-cat" class="comp-cat">—</span>
+              </div>
+            </div>
+            <p id="comp-note" class="comp-note"></p>
+          </div>
+        </section>
+
+        <section class="recommendation-section" aria-labelledby="rec-heading">
+          <div class="section-header">
+            <h3 id="rec-heading" class="section-title">Health Recommendation</h3>
+            <span class="section-hint">Select sensitivity profile</span>
+          </div>
+
+          <div
+            id="profile-bar"
+            class="profile-pills"
+            role="radiogroup"
+            aria-label="Health sensitivity profile"
+          >
+            <button type="button" role="radio" class="profile-pill" id="profile-overall"   data-profile="overall"   aria-checked="true">Overall</button>
+            <button type="button" role="radio" class="profile-pill" id="profile-kids-0-4"  data-profile="kids_0_4"  aria-checked="false">Kids 0–4</button>
+            <button type="button" role="radio" class="profile-pill" id="profile-kids-5-12" data-profile="kids_5_12" aria-checked="false">Kids 5–12</button>
+            <button type="button" role="radio" class="profile-pill" id="profile-teens"     data-profile="teens"     aria-checked="false">Teens 13–17</button>
+            <button type="button" role="radio" class="profile-pill" id="profile-seniors"   data-profile="seniors"   aria-checked="false">Seniors 60+</button>
+            <button type="button" role="radio" class="profile-pill" id="profile-asthmatic" data-profile="asthmatic" aria-checked="false">Asthmatic</button>
+          </div>
+
+          <div id="recommendation-card" class="recommendation-card">
+            <div class="rec-header">
+              <h4 id="rec-headline" class="rec-headline"></h4>
+            </div>
+            <p id="rec-detail" class="rec-detail"></p>
+            <ul id="rec-precautions" class="rec-precautions"></ul>
+          </div>
+
+          <div id="kids-guidance-card" class="kids-card" aria-labelledby="kids-heading">
+            <div class="kids-card-header">
+              <h4 id="kids-heading" class="kids-headline">Kids &amp; School Guidance</h4>
+              <span class="kids-safety-note">No masks for ages 0–4 (suffocation risk)</span>
+            </div>
+            <div id="kids-tiers" class="kids-tiers"></div>
+          </div>
+        </section>
+
+        <section id="chart-section" class="chart-section" aria-labelledby="chart-heading">
+          <div class="section-header">
+            <h3 id="chart-heading" class="section-title">24-Hour PM2.5 Trend</h3>
+            <span class="chart-unit-badge">Unit: µg/m³</span>
+          </div>
+          <div class="chart-wrap" role="img" aria-label="24-hour PM2.5 trend chart with vertical scale">
+            <svg
+              id="trend-chart"
+              class="trend-svg"
+              viewBox="0 0 500 160"
+              preserveAspectRatio="none"
+              aria-hidden="true"
             >
-              <span id="aqi-number" class="aqi-number"></span>
-              <span id="aqi-label"  class="aqi-label"></span>
+              <defs>
+                <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+
+              <line id="grid-top" class="grid-line" x1="65" y1="20"  x2="490" y2="20"  />
+              <line id="grid-mid" class="grid-line" x1="65" y1="80"  x2="490" y2="80"  />
+              <line id="grid-bot" class="grid-line" x1="65" y1="140" x2="490" y2="140" />
+
+              <text id="y-scale-top" class="scale-text" x="58" y="24"  text-anchor="end">—</text>
+              <text id="y-scale-mid" class="scale-text" x="58" y="84"  text-anchor="end">—</text>
+              <text id="y-scale-bot" class="scale-text" x="58" y="144" text-anchor="end">—</text>
+
+              <path     id="chart-area" fill="url(#chart-grad)" d=""/>
+              <polyline id="chart-line" class="chart-line" fill="none" points=""/>
+            </svg>
+
+            <div class="chart-time-labels">
+              <span id="chart-label-start">—</span>
+              <span id="chart-label-mid">—</span>
+              <span id="chart-label-end">—</span>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="pollutants-section" aria-labelledby="pollutants-heading">
-        <div class="section-header">
-          <h3 id="pollutants-heading" class="section-title">Pollutant Measurements</h3>
-          <span class="section-hint">CPCB Standard Breakpoints</span>
-        </div>
-        <div id="pollutants-grid" class="pollutants-grid" role="list"></div>
-      </section>
+        <section class="data-meta" aria-label="Data source information">
+          <p class="meta-text">
+            Sources:
+            <a
+              href="https://open-meteo.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Open-Meteo Air Quality &amp; Weather Forecast APIs</a>
+          </p>
+          <p class="meta-text meta-disclaimer">
+            AQI calculated using <abbr title="Central Pollution Control Board">CPCB</abbr>
+            India methodology. Health recommendations are informational only and do not
+            constitute medical advice.
+          </p>
+        </section>
 
-      <section class="recommendation-section" aria-labelledby="rec-heading">
-        <h3 id="rec-heading" class="section-title">Health Recommendation</h3>
-        <div id="recommendation-card" class="recommendation-card">
-          <div class="rec-header">
-            <h4 id="rec-headline" class="rec-headline"></h4>
+      </div>
+
+      <div id="compare-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
+        <section class="compare-section" aria-labelledby="compare-heading">
+          <div class="compare-toolbar">
+            <div>
+              <h2 id="compare-heading" class="section-title">Multi-City Batch Comparison</h2>
+              <p id="compare-subtitle" class="compare-subtitle">Search below to add any city (2–4 cities per comparison).</p>
+            </div>
+            <div class="compare-actions">
+              <button id="btn-preset-compare" class="btn-secondary" type="button">Delhi · Jaipur · Mumbai</button>
+              <button id="btn-clear-pins"     class="btn-secondary" type="button">Clear All</button>
+            </div>
           </div>
-          <p id="rec-detail" class="rec-detail"></p>
-          <ul id="rec-precautions" class="rec-precautions"></ul>
-        </div>
-      </section>
 
-      <section id="chart-section" class="chart-section" aria-labelledby="chart-heading">
-        <div class="section-header">
-          <h3 id="chart-heading" class="section-title">24-Hour PM2.5 Trend</h3>
-          <span class="chart-unit-badge">Unit: µg/m³</span>
-        </div>
-        <div class="chart-wrap" role="img" aria-label="24-hour PM2.5 trend chart with vertical scale">
-          <svg
-            id="trend-chart"
-            class="trend-svg"
-            viewBox="0 0 500 160"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.35"/>
-                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-
-            <line id="grid-top" class="grid-line" x1="65" y1="20"  x2="490" y2="20"  />
-            <line id="grid-mid" class="grid-line" x1="65" y1="80"  x2="490" y2="80"  />
-            <line id="grid-bot" class="grid-line" x1="65" y1="140" x2="490" y2="140" />
-
-            <text id="y-scale-top" class="scale-text" x="58" y="24"  text-anchor="end">—</text>
-            <text id="y-scale-mid" class="scale-text" x="58" y="84"  text-anchor="end">—</text>
-            <text id="y-scale-bot" class="scale-text" x="58" y="144" text-anchor="end">—</text>
-
-            <path     id="chart-area" fill="url(#chart-grad)" d=""/>
-            <polyline id="chart-line" class="chart-line" fill="none" points=""/>
-          </svg>
-
-          <div class="chart-time-labels">
-            <span id="chart-label-start">—</span>
-            <span id="chart-label-mid">—</span>
-            <span id="chart-label-end">—</span>
+          <div class="compare-search-wrapper">
+            <label for="compare-city-input" class="sr-only">Search a city to add to comparison</label>
+            <div class="compare-search-group" role="search">
+              <input
+                id="compare-city-input"
+                type="search"
+                class="compare-search-input"
+                placeholder="Search a city to add — e.g. Pune, Bengaluru, London…"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Add city to comparison"
+                aria-autocomplete="list"
+                aria-controls="compare-suggestions"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                maxlength="100"
+              />
+              <button
+                id="compare-add-btn"
+                class="compare-add-btn"
+                type="button"
+                aria-label="Add matching city to comparison"
+                title="Add matching city to comparison"
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <ul
+              id="compare-suggestions"
+              class="suggestions compare-suggestions"
+              role="listbox"
+              aria-label="Cities to add to comparison"
+              hidden
+            ></ul>
           </div>
-        </div>
-      </section>
 
-      <section class="data-meta" aria-label="Data source information">
-        <p class="meta-text">
-          Source:
-          <a
-            href="https://open-meteo.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Open-Meteo Air Quality API</a>
-        </p>
-        <p class="meta-text meta-disclaimer">
-          AQI calculated using <abbr title="Central Pollution Control Board">CPCB</abbr>
-          India methodology. Health recommendations are informational only and do not
-          constitute medical advice.
-        </p>
-      </section>
+          <div id="shared-grid-warning" class="shared-grid-notice" role="status" hidden>
+            Note: Two or more selected locations fall inside the same ~45 km Open-Meteo CAMS grid cell and therefore share modeled baseline readings.
+          </div>
+
+          <p id="compare-status" class="compare-status" hidden></p>
+
+          <div class="compare-table-wrap">
+            <table id="compare-table" class="compare-table">
+              <thead>
+                <tr>
+                  <th scope="col">City</th>
+                  <th scope="col">CPCB AQI</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">US EPA / EU EEA</th>
+                  <th scope="col">PM2.5</th>
+                  <th scope="col">PM10</th>
+                  <th scope="col">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="compare-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
 
     </div>
 
     <div id="empty-state" class="empty-state">
       <p class="empty-title">Check air quality in your city</p>
-      <p class="empty-desc">Search for any city above to view real-time AQI, individual pollutants, and practical health guidance.</p>
+      <p class="empty-desc">Search for any city above to view real-time AQI, age-specific guidance, atmospheric dispersion, and multi-city comparisons.</p>
+      <div class="empty-compare-row">
+        <button id="btn-open-compare" class="btn-secondary" type="button">Compare Cities</button>
+      </div>
       <div id="recent-cities" class="recent-cities" hidden>
         <p class="recent-label">Recent searches:</p>
         <div id="recent-list" class="recent-list"></div>

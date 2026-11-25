@@ -10,7 +10,13 @@ from unittest.mock import MagicMock, patch
 
 from requests.exceptions import ConnectionError, RequestException, Timeout
 
-from api import APIError, geocode, get_air_quality
+from api import (
+    APIError,
+    geocode,
+    get_air_quality,
+    get_air_quality_batch,
+    get_ventilation,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +243,98 @@ class TestGetAirQuality(unittest.TestCase):
         params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params", {})
         self.assertAlmostEqual(float(params["latitude"]),  28.65, places=2)
         self.assertAlmostEqual(float(params["longitude"]), 77.23, places=2)
+
+    @patch("api.requests.get")
+    def test_extracts_external_indices(self, mock_get):
+        payload = _standard_air_quality_payload()
+        payload["current"]["us_aqi"] = 142
+        payload["current"]["european_aqi"] = 68
+        mock_get.return_value = _mock_response(payload)
+        result = get_air_quality(28.65, 77.23)
+        self.assertEqual(result["external_indices"]["us_aqi"], 142.0)
+        self.assertEqual(result["external_indices"]["european_aqi"], 68.0)
+
+
+class TestGetVentilation(unittest.TestCase):
+
+    @patch("api.requests.get")
+    def test_requests_ms_units_and_parses_values(self, mock_get):
+        mock_get.return_value = _mock_response({
+            "current": {
+                "wind_speed_10m": 3.5,
+                "wind_direction_10m": 270.0,
+                "boundary_layer_height": 1200.0,
+            }
+        })
+        result = get_ventilation(28.65, 77.23)
+        call_kwargs = mock_get.call_args
+        params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params", {})
+        self.assertEqual(params["wind_speed_unit"], "ms")
+        self.assertIn("boundary_layer_height", params["current"])
+        self.assertAlmostEqual(result["wind_speed_ms"], 3.5)
+        self.assertAlmostEqual(result["wind_direction_deg"], 270.0)
+        self.assertAlmostEqual(result["boundary_layer_height_m"], 1200.0)
+
+    @patch("api.requests.get")
+    def test_timeout_raises_api_error(self, mock_get):
+        mock_get.side_effect = Timeout()
+        with self.assertRaises(APIError):
+            get_ventilation(28.65, 77.23)
+
+    @patch("api.requests.get")
+    def test_request_exception_raises_api_error(self, mock_get):
+        mock_get.side_effect = RequestException("Upstream 500")
+        with self.assertRaises(APIError):
+            get_ventilation(28.65, 77.23)
+
+
+class TestGetAirQualityBatch(unittest.TestCase):
+
+    def test_empty_coords_returns_empty_list(self):
+        self.assertEqual(get_air_quality_batch([]), [])
+
+    @patch("api.requests.get")
+    def test_single_dict_response_normalized_to_list(self, mock_get):
+        mock_get.return_value = _mock_response({
+            "latitude": 28.6,
+            "longitude": 77.2,
+            "current": {
+                "pm2_5": 85.0, "pm10": 140.0,
+                "nitrogen_dioxide": 42.0, "ozone": 60.0,
+                "carbon_monoxide": 500.0, "sulphur_dioxide": 18.0,
+                "us_aqi": 166, "european_aqi": 75,
+                "time": "2024-01-15T14:00",
+            },
+        })
+        result = get_air_quality_batch([(28.65, 77.23)])
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0]["grid_lat"], 28.6)
+        self.assertAlmostEqual(result[0]["current"]["co"], 0.5)
+        self.assertEqual(result[0]["external_indices"]["us_aqi"], 166.0)
+
+    @patch("api.requests.get")
+    def test_list_response_parses_all_coords(self, mock_get):
+        mock_get.return_value = _mock_response([
+            {
+                "latitude": 28.6, "longitude": 77.2,
+                "current": {"pm2_5": 95.0, "carbon_monoxide": 1000.0},
+            },
+            {
+                "latitude": 19.1, "longitude": 72.9,
+                "current": {"pm2_5": 25.0, "carbon_monoxide": 200.0},
+            },
+        ])
+        result = get_air_quality_batch([(28.65, 77.23), (19.08, 72.88)])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["lat"], 28.65)
+        self.assertEqual(result[1]["lat"], 19.08)
+        self.assertAlmostEqual(result[0]["current"]["co"], 1.0)
+
+    @patch("api.requests.get")
+    def test_timeout_raises_api_error(self, mock_get):
+        mock_get.side_effect = Timeout()
+        with self.assertRaises(APIError):
+            get_air_quality_batch([(28.65, 77.23), (19.08, 72.88)])
 
 
 if __name__ == "__main__":

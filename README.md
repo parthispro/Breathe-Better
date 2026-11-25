@@ -1,37 +1,38 @@
 # Breathe-Better
 ### Urban Air Quality Assistant
 
-Breathe-Better is a lightweight, responsive web application that retrieves air-quality data for a selected location and presents it through AQI measurements, pollutant breakdowns, health recommendations, and historical trends.
+Breathe-Better is a lightweight, responsive web application that retrieves real-time air-quality and meteorological dispersion data for any city and presents it through CPCB AQI measurements, pollutant breakdowns, multi-standard comparisons, age-specific health recommendations, atmospheric dispersion metrics, and multi-city batch comparisons.
 
-The application is designed to make environmental data easier to interpret while providing transparency about data sources, update times, and availability.
+The application is designed to make environmental data easier to interpret while providing full transparency about scales, grid resolution, data sources, update times, and cache status — all without external frontend frameworks or API keys.
 
 ---
 
 ## 1. Features
 
-- **Location-based monitoring:** Search for a city or location to retrieve its air-quality information.
-- **AQI calculation:** Calculate the India National Air Quality Index using CPCB methodology.
-- **Pollutant analysis:** Display individual pollutant measurements and their corresponding sub-indices.
-- **Health recommendations:** Present precautionary guidance based on the AQI category.
-- **Historical trends:** Visualize available PM2.5 measurements over time.
-- **Data transparency:** Display data sources, update timestamps, and cache status.
-- **Responsive interface:** Support desktop, tablet, and mobile screen sizes.
+- **Location-based monitoring:** Search for any city or location via autocomplete (`Open-Meteo Geocoding API`) to retrieve real-time air-quality and dispersion data.
+- **CPCB AQI calculation:** Computes the India National Air Quality Index using official CPCB sub-index breakpoints and linear interpolation across six criteria pollutants (`PM2.5`, `PM10`, `NO₂`, `O₃`, `CO`, `SO₂`).
+- **Age-specific & Kids guidance:** Interactive sensitivity profile pills (`Overall`, `Kids 0–4`, `Kids 5–12`, `Teens 13–17`, `Seniors 60+`, `Asthmatic`) saved locally in browser `localStorage`, paired with a dedicated **Kids & School Guidance** card. Enforces a zero-mask safety policy for ages `0–4 yrs` (suffocation risk; strictly indoor clean-air guidance) and triggers amber health advisories at Moderate AQI (`101–200`) for sensitive profiles while reserving red danger alerts strictly for `> 200`.
+- **Atmospheric Dispersion (Ventilation Index):** Fetches wind speed (`m/s`), wind direction, and boundary layer height (`m`) in parallel from Open-Meteo's Weather Forecast API to calculate the Ventilation Coefficient (`m²/s`) and classify stagnation (`High Trapping Risk`, `Moderate Dispersion`, `Good Dispersion`). Degrades gracefully (`ventilation: null`) if forecast data is unavailable.
+- **3-way AQI standard comparator:** Compares **CPCB India** (`0–500`), **US EPA** (`0–500+`), and **EU EEA** (`0–100+`) scores side-by-side for the same measurement, explaining why different weather apps report different numbers.
+- **Multi-city batch compare (`Compare Cities` tab):** Compares 2–4 cities in one Open-Meteo batch API call, lets users search and add (`+`) or remove (`×`) custom cities directly from the top search dropdown, Overview card, or the dedicated search bar inside the Compare Cities tab, offers one-click wide-spaced metro presets (`Delhi · Jaipur · Mumbai`), and warns when locations share the same ~45 km CAMS grid cell.
+- **Historical trends & transparency:** Native SVG 24-hour `PM2.5` trend chart, live timestamps, cached-response indicator, and recent search chips.
 
 ## 2. Technology Stack
 
 | Component | Technology |
 |---|---|
-| Frontend | HTML5, CSS3, Vanilla JavaScript |
-| Backend | Python, Flask |
+| Frontend | HTML5, CSS3, Vanilla ES6+ JavaScript |
+| Backend | Python, Flask, `concurrent.futures` (`ThreadPoolExecutor`), `OrderedDict` TTL cache |
 | Air-quality data | Open-Meteo Air Quality API |
+| Atmospheric dispersion | Open-Meteo Weather Forecast API |
 | Location search | Open-Meteo Geocoding API |
-| HTTP client | Requests / HTTPX |
-| Data visualization | Native SVG and CSS |
-| Client-side storage | Browser LocalStorage |
-| Testing | Pytest |
+| HTTP client | Requests / HTTPX (Python 3.15 async option) |
+| Data visualization | Native inline SVG and CSS |
+| Client-side storage | Browser `localStorage` |
+| Testing | Pytest + pytest-cov |
 | Code quality | Ruff |
 
-**External API credentials:** No API key is required for the configured Open-Meteo endpoints.
+**External API credentials:** No API key is required for any configured Open-Meteo endpoint.
 
 ## 3. Quick Start
 
@@ -39,7 +40,7 @@ The application is designed to make environmental data easier to interpret while
 
 - Python 3.14 or later for the synchronous configuration.
 - Git (optional, for cloning the repository).
-- An internet connection for external API requests.
+- An internet connection for live external API requests.
 
 ### Python 3.14 — Standard Configuration
 
@@ -47,7 +48,7 @@ The application is designed to make environmental data easier to interpret while
 git clone <repository-url>
 cd Breathe-Better
 
-pip install -r requirements-py314.txt
+python3 -m pip install -r requirements-py314.txt
 python3 app.py
 ```
 
@@ -57,14 +58,14 @@ python3 app.py
 git clone <repository-url>
 cd Breathe-Better
 
-pip install -r requirements-py315.txt
+python3.15 -m pip install -r requirements-py315.txt
 python3 app.py
 ```
 
 Open the following address in your browser:
 
 ```text
-http://localhost:5000
+http://127.0.0.1:5000
 ```
 
 ### Dependency Configuration
@@ -75,230 +76,151 @@ http://localhost:5000
 | `requirements-py315.txt` | 3.15+ | HTTPX | Asynchronous, HTTP/2 |
 | `requirements.txt` | 3.14+ | Requests | Default configuration |
 
-The requirements files provide alternative dependency configurations for the application.
-
 ## 4. Project Architecture
 
-The application follows a modular client-server architecture.
+The application follows a lightweight, modular client-server architecture:
 
 ```text
-                 User
-                  |
-                  v
-          Web Application
-          HTML / CSS / JS
-                  |
-                  v
-             Flask Server
-                  |
-          +-------+-------+
-          |               |
-          v               v
-       api.py           aqi.py
-          |               |
-          v               v
-     Open-Meteo       AQI Calculation
-       APIs           & Recommendations
-          |               |
-          +-------+-------+
-                  |
-                  v
-          Processed AQI Data
-                  |
-                  v
-          Frontend Rendering
+                      User (Browser)
+                    HTML / CSS / JS
+                           |
+                           v
+                      Flask Server (app.py)
+               +-----------+-----------+
+               |                       |
+               v                       v
+            api.py                   aqi.py
+               |                       |
+   +-----------+-----------+           +--> CPCB Sub-Index Engine
+   |           |           |           +--> Age & Kids Guidance
+   v           v           v           +--> Ventilation Coefficient
+Geocoding  Air Quality  Forecast       +--> 3-Standard Comparator
+  API          API      (Wind/PBL)
+               |                       |
+               +-----------+-----------+
+                           |
+                           v
+             JSON Response + Strict CSP
 ```
 
 ### Core Components
 
 | Module | Responsibility |
 |---|---|
-| `app.py` | Flask application, HTTP routes, caching, and response security headers |
-| `api.py` | External API communication, location search, and air-quality data retrieval |
-| `aqi.py` | AQI sub-index calculations, category classification, and recommendations |
-| `templates/index.html` | Application interface structure |
-| `static/style.css` | Responsive styling and AQI-related visual elements |
-| `static/app.js` | API requests, interface rendering, autocomplete, and LocalStorage handling |
+| `app.py` | Flask routes (`/`, `/api/geocode`, `/api/air-quality`, `/api/compare`), parallel `ThreadPoolExecutor` fetch orchestration, bounded `OrderedDict` TTL cache (200 entries / 600 s), input validation, and strict security headers |
+| `api.py` | Open-Meteo HTTP clients for geocoding, single-city air quality (`past_days=1` + `us_aqi` / `european_aqi`), forecast ventilation (`wind_speed_unit=ms`, `timeout=4s`), and 2–4 city batch queries with CO `µg/m³ → mg/m³` conversion |
+| `aqi.py` | Pure-Python CPCB sub-index calculator, category mapper, overall recommendations, 6-band × 6-tier age/kids guidance, Ventilation Coefficient interpreter, and 3-way AQI standard comparator |
+| `templates/index.html` | Semantic WCAG 2.2 AA SPA shell with Overview and Compare Cities tabs, search autocompletes, dispersion/comparator cards, profile pills, Kids card, and inline SVG trend chart |
+| `static/style.css` | Mobile-first dark-themed responsive stylesheet, AQI color tokens, amber/red advisory styles, and reduced-motion support |
+| `static/app.js` | Strict ES6+ controller for autocomplete + compare (`+` / `×`) toggles, `AbortController`, `localStorage` persistence (`bb_age_profile`, `bb_pinned_cities`, `bb_recent_cities`), DOM/SVG rendering, and keyboard navigation |
 
 ## 5. Project Structure
 
 ```text
 Breathe-Better/
-│
 ├── app.py
 ├── api.py
 ├── aqi.py
-│
+├── Procfile
 ├── requirements.txt
 ├── requirements-py314.txt
 ├── requirements-py315.txt
-│
+├── README.md
+├── LICENSE
 ├── templates/
 │   └── index.html
-│
 ├── static/
 │   ├── style.css
 │   └── app.js
-│
 └── tests/
     ├── test_aqi.py
-    └── test_api.py
+    ├── test_api.py
+    └── test_app.py
 ```
 
-## 6. Air Quality Index Methodology
+## 6. Air Quality & Dispersion Methodology
 
-Breathe-Better implements the India National Air Quality Index methodology published by the Central Pollution Control Board (CPCB).
+### CPCB National AQI (India)
 
-The application processes supported pollutant measurements and calculates their respective sub-indices using the configured CPCB breakpoint ranges.
+Breathe-Better calculates sub-indices using official CPCB breakpoints across six pollutants (`PM2.5`, `PM10`, `NO₂`, `O₃`, `CO` in `mg/m³`, `SO₂`), taking the maximum valid sub-index as the overall AQI:
 
-### Supported Pollutants
-
-| Pollutant | Measurement unit | Description |
+| AQI range | Category | General Guidance |
 |---|---|---|
-| PM2.5 | µg/m³ | Fine particulate matter |
-| PM10 | µg/m³ | Coarse particulate matter |
-| NO₂ | µg/m³ | Nitrogen dioxide |
-| O₃ | µg/m³ | Ozone |
-| CO | mg/m³ | Carbon monoxide |
-| SO₂ | µg/m³ | Sulphur dioxide |
+| 0–50 | Good | Normal outdoor activities |
+| 51–100 | Satisfactory | Generally safe; mild discomfort possible for very sensitive individuals |
+| 101–200 | Moderate | Sensitive groups (ages 0–4, 5–12, seniors 60+, asthmatics) see amber advisory |
+| 201–300 | Poor | Reduce prolonged outdoor exposure; red alert banner displayed |
+| 301–400 | Very Poor | Avoid prolonged outdoor activities |
+| 401–500 | Severe | Minimize all outdoor exposure and follow official guidance |
 
-### AQI Categories
+### Multi-Standard Comparator
 
-| AQI range | Category |
-|---|---|
-| 0–50 | Good |
-| 51–100 | Satisfactory |
-| 101–200 | Moderate |
-| 201–300 | Poor |
-| 301–400 | Very Poor |
-| 401–500 | Severe |
+Alongside CPCB India (`0–500`), `/api/air-quality` retrieves Open-Meteo's `us_aqi` (**US EPA**, `0–500+`) and `european_aqi` (**EU EEA**, `0–100+`) in the same request so users can understand why international weather apps display different scores for identical air quality.
 
-The overall AQI is determined using the highest valid pollutant sub-index, subject to the applicable CPCB calculation and data-availability requirements.
+### Atmospheric Ventilation Coefficient
 
-**Note:** Correct AQI calculation depends on pollutant-specific breakpoints, averaging periods, units, and data validity. The presence of a pollutant measurement alone does not establish that a valid sub-index can be calculated.
+`Ventilation Coefficient (m²/s) = Wind Speed (m/s) × Planetary Boundary Layer Height (m)`:
+- `< 3000 m²/s`: **High Trapping Risk** (pollutants accumulate near ground level)
+- `3000–5999 m²/s`: **Moderate Dispersion**
+- `>= 6000 m²/s`: **Good Dispersion**
 
 ## 7. Data Sources
 
-The application uses Open-Meteo for external environmental and geographical data.
-
 | Service | Purpose | Documentation |
 |---|---|---|
-| Open-Meteo Air Quality API | Pollutant measurements and air-quality data | [API Documentation](https://open-meteo.com/en/docs/air-quality-api) |
-| Open-Meteo Geocoding API | Location search and geographical coordinates | [API Documentation](https://open-meteo.com/en/docs/geocoding-api) |
+| Open-Meteo Air Quality API | Pollutant concentrations, 24h PM2.5 series, US EPA & EU EEA indices | [API Documentation](https://open-meteo.com/en/docs/air-quality-api) |
+| Open-Meteo Weather Forecast API | Surface wind speed (`m/s`), wind direction, boundary layer height (`m`) | [API Documentation](https://open-meteo.com/en/docs) |
+| Open-Meteo Geocoding API | City search and coordinates | [API Documentation](https://open-meteo.com/en/docs/geocoding-api) |
 
-Both configured services can be used without an API key.
-
-Data availability, timestamps, and whether measurements are modelled or station-observed must be interpreted according to the underlying provider's documentation. Open-Meteo data should not automatically be represented as direct CPCB monitoring-station observations.
+Open-Meteo CAMS global atmospheric model data has a ~0.4° (~45 km) spatial resolution outside European regional domains. When two compared coordinates snap to the same model grid cell (`grid_lat`, `grid_lon`), `/api/compare` sets `shared_grid_warning: true` and surfaces an explanatory banner.
 
 ## 8. Testing and Code Quality
 
-The project uses Pytest for automated testing and Ruff for static code-quality checks.
-
-### Run the complete test suite
+The project uses Pytest for automated unit, integration, and Flask route testing, plus Ruff for linting.
 
 ```bash
-python3 -m pytest tests/ -v \
-    --cov=aqi \
-    --cov=api \
-    --cov-report=term-missing
+# Run complete test suite with coverage
+.venv/bin/python -m pytest tests/ -v --cov=aqi --cov=api --cov=app --cov-report=term-missing
+
+# Run individual test modules
+.venv/bin/python -m pytest tests/test_aqi.py -v
+.venv/bin/python -m pytest tests/test_api.py -v
+.venv/bin/python -m pytest tests/test_app.py -v
+
+# Run static checks
+.venv/bin/ruff check .
 ```
 
-### Run AQI calculation tests
-
-```bash
-python3 -m pytest tests/test_aqi.py -v
-```
-
-### Run API tests
-
-```bash
-python3 -m pytest tests/test_api.py -v
-```
-
-API integration tests use mocks to validate client behaviour without requiring external network requests.
-
-### Run static checks
-
-```bash
-python3 -m ruff check .
-```
-
-The testing strategy covers:
-
-- AQI calculations and category classification.
-- Pollutant sub-index calculations.
-- API response handling.
-- Missing and invalid data.
-- Error handling and external API failures.
+All API integration and Flask client tests run offline using `unittest.mock` so suites stay fast and deterministic.
 
 ## 9. Security Considerations
 
-The application incorporates the following security measures:
+- Strict `Content-Security-Policy` (`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`) with zero external script, font, style, or tile origins.
+- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and `Permissions-Policy`.
+- Regex, type, length (`[:100]`), and coordinate-range validation before outbound API calls.
+- Bounded in-process `OrderedDict` cache (200-entry limit) preventing unbounded memory growth.
+- Dynamic DOM text rendered safely via text nodes / HTML escaping; health sensitivity profiles and pinned comparison cities stay client-side in `localStorage` with zero server-side tracking.
 
-- Content Security Policy (CSP) response header.
-- Input validation before external API requests.
-- Input length restrictions and format validation.
-- `X-Frame-Options: DENY`.
-- `X-Content-Type-Options: nosniff`.
-- `Referrer-Policy: no-referrer`.
-- Safe rendering of dynamic frontend content using DOM text nodes.
-- No API credentials embedded in application source code.
-
-These controls are intended to reduce common web application security risks. Their effectiveness should be verified through implementation review and testing.
-
-## 10. Responsive Design
-
-The frontend uses a responsive layout to support different device sizes.
+## 10. Responsive Design & Size Constraint
 
 | Viewport width | Layout |
 |---|---|
-| 320–767 px | Single-column layout |
-| 768–1023 px | Two- or three-column pollutant grid |
-| 1024 px and above | Expanded pollutant grid and chart layout |
+| 320–767 px | Single-column dashboard, horizontally scrollable comparison table |
+| 768–1023 px | Three-column pollutant, ventilation, and comparator grids |
+| 1024 px and above | Expanded desktop layout and chart sizing |
 
-The interface is designed with mobile usability, readable information hierarchy, and accessible interactions in mind.
-
-## 11. Performance and Deployment Constraints
-
-The application is designed to minimize unnecessary dependencies and keep its runtime footprint small.
-
-Performance considerations include:
-
-- Lightweight frontend implementation without a large JavaScript framework.
-- Server-side caching with a configured TTL.
-- Efficient external API requests.
-- Minimal client-side dependencies.
-- Native SVG-based data visualization.
-
-Performance targets should be evaluated using actual measurements under documented network and hardware conditions.
-
-### Submission Size
-
-The project has a submission archive limit of 10 MB.
-
-Recommended internal target: less than 7 MB.
-
-Check the project directory size:
+Designed to remain strictly below the **10 MB** submission limit:
 
 ```bash
-du -sh \
-    --exclude=__pycache__ \
-    --exclude='*.pyc' \
-    --exclude=.venv .
+du -sh --exclude=__pycache__ --exclude='*.pyc' --exclude=.venv --exclude=.git .
 ```
 
-Exclude virtual environments, generated caches, and other unnecessary development files from the submission archive.
+## 11. Health Information Disclaimer
 
-## 12. Health Information Disclaimer
-
-Health recommendations provided by Breathe-Better are intended for general informational purposes only.
-
-They do not constitute medical advice, diagnosis, or treatment recommendations. Users should consult qualified healthcare professionals for individual medical concerns.
+Health recommendations provided by Breathe-Better are for general informational purposes only and do not constitute medical advice, diagnosis, or treatment. Consult a qualified healthcare professional for individual medical concerns.
 
 ---
 
-**Breathe-Better**  
+**Breathe-Better**
 Urban Air Quality Assistant
-
-Data services: [Open-Meteo](https://open-meteo.com/)  
-AQI methodology reference: Central Pollution Control Board (CPCB), India National AQI.
+Data services: [Open-Meteo](https://open-meteo.com/) · Methodology: Central Pollution Control Board (CPCB), India National AQI.

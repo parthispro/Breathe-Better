@@ -11,8 +11,11 @@ import unittest
 from aqi import (
     _CATEGORIES,
     _get_category,
+    build_aqi_comparison,
     calculate_aqi,
+    get_age_and_kids_guidance,
     get_recommendation,
+    interpret_ventilation,
     sub_index,
 )
 
@@ -238,6 +241,117 @@ class TestGetRecommendation(unittest.TestCase):
         rec = get_recommendation("")
         self.assertIn("headline", rec)
         self.assertIn("precautions", rec)
+
+
+class TestGetAgeAndKidsGuidance(unittest.TestCase):
+    """get_age_and_kids_guidance() — all categories, tiers, and 0–4 safety rules."""
+
+    KNOWN: typing.ClassVar[list[str]] = [
+        "Good", "Satisfactory", "Moderate", "Poor", "Very Poor", "Severe",
+    ]
+    TIERS: typing.ClassVar[list[str]] = [
+        "overall", "infants_toddlers", "kids_school", "teens", "seniors", "asthmatic",
+    ]
+
+    def test_all_categories_and_tiers_non_empty(self):
+        for cat in self.KNOWN:
+            guidance = get_age_and_kids_guidance(cat)
+            for tier in self.TIERS:
+                with self.subTest(category=cat, tier=tier):
+                    self.assertIn(tier, guidance)
+                    self.assertIsInstance(guidance[tier], list)
+                    self.assertGreater(len(guidance[tier]), 0)
+                    for step in guidance[tier]:
+                        self.assertIsInstance(step, str)
+                        self.assertTrue(step.strip())
+
+    def test_infants_toddlers_no_mask_policy(self):
+        for cat in self.KNOWN:
+            guidance = get_age_and_kids_guidance(cat)
+            combined = " ".join(guidance["infants_toddlers"]).lower()
+            with self.subTest(category=cat):
+                self.assertNotIn("mask", combined)
+                self.assertNotIn("n95", combined)
+
+    def test_unknown_category_returns_empty_tiers(self):
+        guidance = get_age_and_kids_guidance("UnknownBand")
+        for tier in self.TIERS:
+            self.assertEqual(guidance[tier], [])
+
+
+class TestInterpretVentilation(unittest.TestCase):
+    """interpret_ventilation() — VC math, thresholds, compass headings, None safety."""
+
+    def test_none_inputs_return_none(self):
+        self.assertIsNone(interpret_ventilation(None, 90.0, 500.0))
+        self.assertIsNone(interpret_ventilation(3.0, None, 500.0))
+        self.assertIsNone(interpret_ventilation(3.0, 90.0, None))
+
+    def test_negative_inputs_return_none(self):
+        self.assertIsNone(interpret_ventilation(-1.0, 90.0, 500.0))
+        self.assertIsNone(interpret_ventilation(3.0, 90.0, -10.0))
+
+    def test_high_trapping_risk_below_3000(self):
+        res = interpret_ventilation(1.0, 0.0, 2999.0)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["ventilation_coeff"], 2999)
+        self.assertEqual(res["dispersion_tier"], "High Trapping Risk")
+        self.assertEqual(res["dispersion_color"], "#dc2626")
+
+    def test_moderate_dispersion_at_3000_and_5999(self):
+        low = interpret_ventilation(3.0, 90.0, 1000.0)
+        high = interpret_ventilation(1.0, 90.0, 5999.0)
+        self.assertEqual(low["ventilation_coeff"], 3000)
+        self.assertEqual(low["dispersion_tier"], "Moderate Dispersion")
+        self.assertEqual(low["dispersion_color"], "#ca8a04")
+        self.assertEqual(high["dispersion_tier"], "Moderate Dispersion")
+
+    def test_good_dispersion_at_6000_plus(self):
+        res = interpret_ventilation(4.0, 180.0, 1500.0)
+        self.assertEqual(res["ventilation_coeff"], 6000)
+        self.assertEqual(res["dispersion_tier"], "Good Dispersion")
+        self.assertEqual(res["dispersion_color"], "#16a34a")
+
+    def test_compass_directions(self):
+        expected = [
+            (0.0, "N"), (45.0, "NE"), (90.0, "E"), (135.0, "SE"),
+            (180.0, "S"), (225.0, "SW"), (270.0, "W"), (315.0, "NW"), (359.0, "N"),
+        ]
+        for deg, compass in expected:
+            with self.subTest(deg=deg):
+                res = interpret_ventilation(2.0, deg, 1000.0)
+                self.assertEqual(res["wind_direction_compass"], compass)
+
+
+class TestBuildAQIComparison(unittest.TestCase):
+    """build_aqi_comparison() — 3-standard scales, categories, open-ended bounds."""
+
+    def test_returns_all_three_standards_and_scales(self):
+        cpcb = {"aqi": 220, "category": "Poor", "color": "#ff7c00"}
+        comp = build_aqi_comparison(cpcb, us_aqi=165.0, european_aqi=72.0)
+        self.assertEqual(comp["cpcb"]["score"], 220)
+        self.assertEqual(comp["cpcb"]["scale"], "0–500")
+        self.assertEqual(comp["us_epa"]["score"], 165)
+        self.assertEqual(comp["us_epa"]["category"], "Unhealthy")
+        self.assertEqual(comp["us_epa"]["scale"], "0–500+")
+        self.assertEqual(comp["eu_eea"]["score"], 72)
+        self.assertEqual(comp["eu_eea"]["category"], "Poor")
+        self.assertEqual(comp["eu_eea"]["scale"], "0–100+")
+        self.assertTrue(comp["note"])
+
+    def test_open_ended_upper_categories_above_1000(self):
+        cpcb = {"aqi": 500, "category": "Severe", "color": "#7030a0"}
+        comp = build_aqi_comparison(cpcb, us_aqi=1200.0, european_aqi=1100.0)
+        self.assertEqual(comp["us_epa"]["category"], "Hazardous")
+        self.assertEqual(comp["eu_eea"]["category"], "Extremely Poor")
+
+    def test_none_external_scores_handled_gracefully(self):
+        cpcb = {"aqi": 80, "category": "Satisfactory", "color": "#92d050"}
+        comp = build_aqi_comparison(cpcb, us_aqi=None, european_aqi=None)
+        self.assertIsNone(comp["us_epa"]["score"])
+        self.assertEqual(comp["us_epa"]["category"], "Data unavailable")
+        self.assertIsNone(comp["eu_eea"]["score"])
+        self.assertEqual(comp["eu_eea"]["category"], "Data unavailable")
 
 
 if __name__ == "__main__":

@@ -70,7 +70,13 @@ Thumbs.db
 instance/
 .webassets-cache
 *.log
+*.pid
 flask_session/
+
+# ── Patch / Backup / Accidental Node Artifacts ───────────────
+*.orig
+*.rej
+node_modules/
 
 # ── Submission & Archives ────────────────────────────────────
 *.zip
